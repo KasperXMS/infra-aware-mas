@@ -20,6 +20,7 @@ _ACTION_EVENT_TYPES: Final = frozenset(
     {
         "planner.delegate",
         "planner.finish",
+        "planner.inspect_artifact",
         "execution.request",
         "executor.selected",
         "artifact.transfer.start",
