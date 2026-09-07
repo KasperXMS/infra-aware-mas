@@ -4,6 +4,7 @@ from infra_mas.core.agent import AgentSpec
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import (
     ArtifactNotFoundError,
+    ArtifactTransferError,
     ExecutionFailedError,
     InfraMasError,
     InvalidModelResponseError,
@@ -13,6 +14,7 @@ from infra_mas.core.execution import (
     ExecutionRequest,
     ExecutionResult,
     HealthResponse,
+    TransferResult,
     WorkerStatus,
 )
 from infra_mas.core.executor import ExecutorSpec
@@ -22,6 +24,7 @@ __all__ = [
     "AgentSpec",
     "ArtifactNotFoundError",
     "ArtifactRef",
+    "ArtifactTransferError",
     "ExecutionFailedError",
     "ExecutionRequest",
     "ExecutionResult",
@@ -31,6 +34,7 @@ __all__ = [
     "InvalidModelResponseError",
     "ModelRequest",
     "ModelResult",
+    "TransferResult",
     "WorkerStatus",
     "WorkerUnavailableError",
 ]

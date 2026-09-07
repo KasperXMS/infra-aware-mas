@@ -51,3 +51,12 @@ class WorkerStatus(BaseModel):
 
     worker_id: NonEmptyString
     executors: list[NonEmptyString]
+
+
+class TransferResult(BaseModel):
+    """Measure one explicit data-plane artifact transfer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bytes_transferred: Annotated[int, Field(ge=0)]
+    transfer_ms: NonNegativeFloat

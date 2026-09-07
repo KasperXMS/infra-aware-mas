@@ -9,6 +9,10 @@ class ArtifactNotFoundError(InfraMasError):
     """Raised when a referenced artifact is unavailable."""
 
 
+class ArtifactTransferError(InfraMasError):
+    """Raised when an artifact cannot be copied between workers."""
+
+
 class WorkerUnavailableError(InfraMasError):
     """Raised when a worker cannot be reached."""
 

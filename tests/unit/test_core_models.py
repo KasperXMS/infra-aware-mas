@@ -9,8 +9,11 @@ from infra_mas.core import (
     ExecutionRequest,
     ExecutionResult,
     ExecutorSpec,
+    HealthResponse,
     ModelRequest,
     ModelResult,
+    TransferResult,
+    WorkerStatus,
 )
 
 
@@ -74,6 +77,7 @@ INVALID_MODEL_CASES: list[tuple[type[BaseModel], dict[str, object]]] = [
     ),
     (ModelRequest, {"task": "", "input_paths": []}),
     (ModelResult, {"output_text": "answer", "latency_ms": float("nan")}),
+    (TransferResult, {"bytes_transferred": -1, "transfer_ms": 1}),
 ]
 
 
@@ -110,6 +114,9 @@ INVALID_MODEL_CASES: list[tuple[type[BaseModel], dict[str, object]]] = [
         ),
         ModelRequest(task="Extract relevant evidence.", input_paths=["data/video-001.mp4"]),
         ModelResult(output_text="Evidence found.", latency_ms=100.0),
+        HealthResponse(),
+        WorkerStatus(worker_id="orin-1", executors=["orin-1-vlm"]),
+        TransferResult(bytes_transferred=18_000, transfer_ms=12.5),
     ],
 )
 def test_json_serialization_round_trip(model: BaseModel) -> None:
