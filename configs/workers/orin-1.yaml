@@ -1,0 +1,16 @@
+worker_id: orin-1
+host: 0.0.0.0
+port: 9001
+artifact_root: ../../data/orin-1/artifacts
+
+executors:
+  - id: orin-1-vlm
+    capability: visual_understanding
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:8001/v1
+      model: local-vlm
+      api_key_env: null
+      timeout_seconds: 300
+      max_tokens: 1024
+      temperature: 0

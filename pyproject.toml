@@ -13,6 +13,10 @@ dependencies = [
     "uvicorn>=0.34",
 ]
 
+[project.scripts]
+infra-mas-run = "infra_mas.cli:main"
+infra-mas-worker = "infra_mas.worker.cli:main"
+
 [dependency-groups]
 dev = [
     "pyright>=1.1.400",
@@ -44,4 +48,3 @@ select = ["E", "F", "I", "UP"]
 include = ["src", "tests", "experiments"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
-

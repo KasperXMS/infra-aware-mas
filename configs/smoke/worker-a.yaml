@@ -1,0 +1,10 @@
+worker_id: worker-a
+host: 127.0.0.1
+port: 9101
+artifact_root: ../../data/smoke-worker-a/artifacts
+executors:
+  - id: worker-a-vision
+    capability: visual_understanding
+    backend:
+      type: mock
+      output: visual evidence

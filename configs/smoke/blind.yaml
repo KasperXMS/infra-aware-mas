@@ -1,0 +1,17 @@
+agents_config: agents.yaml
+executors_config: executors.yaml
+runs_root: ../../runs
+temporary_root: ../../.runtime
+input_worker: worker-a
+worker_timeout_seconds: 30
+max_turns: 10
+scheduler:
+  type: fixed
+  assignments:
+    visual_understanding: worker-a-vision
+    reasoning: worker-b-reasoner
+planner:
+  model: unused-during-preflight
+  api: chat_completions
+  base_url: http://127.0.0.1:9999/v1
+  api_key_env: null

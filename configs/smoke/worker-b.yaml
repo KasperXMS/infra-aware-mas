@@ -1,0 +1,10 @@
+worker_id: worker-b
+host: 127.0.0.1
+port: 9102
+artifact_root: ../../data/smoke-worker-b/artifacts
+executors:
+  - id: worker-b-reasoner
+    capability: reasoning
+    backend:
+      type: mock
+      output: final answer

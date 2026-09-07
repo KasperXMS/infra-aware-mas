@@ -1,9 +1,9 @@
 workers:
   orin-1:
-    endpoint: http://127.0.0.1:9001
+    endpoint: http://orin-host:9001
     site: edge
   gpu-1:
-    endpoint: http://127.0.0.1:9002
+    endpoint: http://gpu-host:9002
     site: remote
 
 executors:
@@ -22,6 +22,12 @@ executors:
   gpu-1-llm:
     worker_id: gpu-1
     capability: reasoning
+    model: remote-llm
+    device: rtx4090
+    site: remote
+  gpu-1-summarizer:
+    worker_id: gpu-1
+    capability: summarization
     model: remote-llm
     device: rtx4090
     site: remote

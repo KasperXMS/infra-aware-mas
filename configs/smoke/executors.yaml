@@ -1,0 +1,20 @@
+workers:
+  worker-a:
+    endpoint: http://127.0.0.1:9101
+    site: local-a
+  worker-b:
+    endpoint: http://127.0.0.1:9102
+    site: local-b
+executors:
+  worker-a-vision:
+    worker_id: worker-a
+    capability: visual_understanding
+    model: mock-vlm
+    device: cpu
+    site: local-a
+  worker-b-reasoner:
+    worker_id: worker-b
+    capability: reasoning
+    model: mock-llm
+    device: cpu
+    site: local-b

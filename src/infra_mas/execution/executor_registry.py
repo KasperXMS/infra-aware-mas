@@ -108,6 +108,14 @@ class ExecutorRegistry:
             if executor.capability == capability
         ]
 
+    def list(self) -> list[ExecutorSpec]:
+        """Return all configured physical executors in declaration order."""
+        return [executor.model_copy(deep=True) for executor in self._executors.values()]
+
+    def worker_endpoints(self) -> dict[str, str]:
+        """Return a copy of all configured Worker endpoints."""
+        return dict(self._worker_endpoints)
+
     def worker_endpoint(self, worker_id: str) -> str:
         """Resolve a worker ID to its static HTTP endpoint."""
         try:

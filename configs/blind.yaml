@@ -1,0 +1,25 @@
+# Paths are resolved relative to this file.
+agents_config: agents.yaml
+executors_config: executors.yaml
+runs_root: ../runs
+temporary_root: ../.runtime
+
+# Initial artifacts are uploaded here; later movement remains scheduler-driven.
+input_worker: orin-1
+worker_timeout_seconds: 300
+max_turns: 10
+
+scheduler:
+  type: fixed
+  assignments:
+    visual_understanding: orin-1-vlm
+    reasoning: gpu-1-llm
+    summarization: gpu-1-summarizer
+
+planner:
+  # Replace this with a model available to your account or compatible server.
+  model: replace-with-planner-model
+  api: responses
+  base_url: null
+  api_key_env: OPENAI_API_KEY
+  timeout_seconds: 120

@@ -26,6 +26,10 @@ _TEXT_ARTIFACT_TYPES = frozenset(
 )
 
 
+def _empty_run_metadata() -> dict[str, object]:
+    return {}
+
+
 class ArtifactCatalog:
     """Resolve artifact IDs and inspect only bounded textual artifacts."""
 
@@ -124,6 +128,7 @@ class PlannerContext:
     agent_registry: AgentRegistry
     artifact_catalog: ArtifactCatalog
     trace: TraceRecorder
+    run_metadata: dict[str, object] = field(default_factory=_empty_run_metadata)
     resource_provider: object | None = None
     resource_aware: bool = False
     _action_counter: int = field(default=0, init=False, repr=False)

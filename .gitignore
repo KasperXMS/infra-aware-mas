@@ -10,3 +10,5 @@ dist/
 *.egg-info/
 runs/*
 !runs/.gitkeep
+.runtime/
+data/

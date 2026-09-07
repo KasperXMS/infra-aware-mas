@@ -1,9 +1,6 @@
-"""Experiment entry point."""
+"""Compatibility wrapper for the installed experiment command."""
 
-
-def main() -> None:
-    """Run a configured experiment."""
-
+from infra_mas.cli import main
 
 if __name__ == "__main__":
     main()

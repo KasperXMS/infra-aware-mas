@@ -1,0 +1,36 @@
+worker_id: gpu-1
+host: 0.0.0.0
+port: 9002
+artifact_root: ../../data/gpu-1/artifacts
+
+executors:
+  - id: gpu-1-vlm
+    capability: visual_understanding
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:8001/v1
+      model: remote-vlm
+      api_key_env: null
+      timeout_seconds: 300
+      max_tokens: 1024
+      temperature: 0
+  - id: gpu-1-llm
+    capability: reasoning
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:8002/v1
+      model: remote-llm
+      api_key_env: null
+      timeout_seconds: 300
+      max_tokens: 2048
+      temperature: 0
+  - id: gpu-1-summarizer
+    capability: summarization
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:8002/v1
+      model: remote-llm
+      api_key_env: null
+      timeout_seconds: 300
+      max_tokens: 1024
+      temperature: 0

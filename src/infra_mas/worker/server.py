@@ -1,7 +1,8 @@
 """Worker HTTP server."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -18,13 +19,27 @@ STREAM_CHUNK_SIZE = 64 * 1024
 
 def create_app(service: WorkerService) -> FastAPI:
     """Create a worker API around an injected execution service."""
-    app = FastAPI(title="Infra-Aware MAS Worker")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+        del app
+        yield
+        await service.aclose()
+
+    app = FastAPI(title="Infra-Aware MAS Worker", lifespan=lifespan)
 
     async def health() -> HealthResponse:
         return HealthResponse()
 
     async def status() -> WorkerStatus:
         return service.status()
+
+    async def ready() -> HealthResponse:
+        try:
+            await service.check_backends()
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        return HealthResponse()
 
     async def execute(
         execution_request: ExecutionRequest,
@@ -64,6 +79,7 @@ def create_app(service: WorkerService) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
     app.add_api_route("/health", health, methods=["GET"], response_model=HealthResponse)
+    app.add_api_route("/ready", ready, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/status", status, methods=["GET"], response_model=WorkerStatus)
     app.add_api_route("/execute", execute, methods=["POST"], response_model=ExecutionResult)
     app.add_api_route("/artifacts/{artifact_id:path}", download_artifact, methods=["GET"])

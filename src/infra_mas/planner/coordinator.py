@@ -47,6 +47,7 @@ class Coordinator:
         planner_input = f"{task}\n\nAvailable input artifact IDs: {available_artifacts}"
         await self._context.trace.start(
             {
+                **self._context.run_metadata,
                 "planner": "openai-agents",
                 "resource_aware": False,
                 "agents": [agent.name for agent in self._context.agent_registry.list()],

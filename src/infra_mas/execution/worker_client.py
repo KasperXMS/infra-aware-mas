@@ -68,6 +68,11 @@ class WorkerClient:
         response = await self._request("GET", "/health")
         return HealthResponse.model_validate(response.json())
 
+    async def ready(self) -> HealthResponse:
+        """Verify Worker readiness, including configured model endpoints."""
+        response = await self._request("GET", "/ready")
+        return HealthResponse.model_validate(response.json())
+
     async def status(self) -> WorkerStatus:
         """Fetch and validate worker status."""
         response = await self._request("GET", "/status")

@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -23,6 +24,16 @@ class WorkerExecutor:
 
 
 ArtifactIdFactory = Callable[[ExecutionRequest], str]
+
+
+@runtime_checkable
+class _AsyncClosable(Protocol):
+    async def aclose(self) -> None: ...
+
+
+@runtime_checkable
+class _AsyncCheckable(Protocol):
+    async def check(self) -> None: ...
 
 
 class WorkerService:
@@ -65,6 +76,18 @@ class WorkerService:
             worker_id=self._worker_id,
             executors=[executor.id for executor in self._executors.values()],
         )
+
+    async def aclose(self) -> None:
+        """Close executor backends that own asynchronous resources."""
+        for executor in self._executors.values():
+            if isinstance(executor.backend, _AsyncClosable):
+                await executor.backend.aclose()
+
+    async def check_backends(self) -> None:
+        """Check all backends that provide an explicit readiness probe."""
+        for executor in self._executors.values():
+            if isinstance(executor.backend, _AsyncCheckable):
+                await executor.backend.check()
 
     async def execute(
         self,
