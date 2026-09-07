@@ -1,0 +1,1 @@
+"""Infrastructure resource models."""

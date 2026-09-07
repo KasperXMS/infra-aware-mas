@@ -1,0 +1,1 @@
+"""Explicit artifact transfer management."""

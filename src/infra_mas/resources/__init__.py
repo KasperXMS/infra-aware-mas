@@ -1,0 +1,1 @@
+"""Optional resource-awareness components."""
