@@ -1,6 +1,6 @@
 """MAS-level execution models."""
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -34,3 +34,20 @@ class ExecutionResult(BaseModel):
     compute_ms: NonNegativeFloat
     transfer_ms: NonNegativeFloat = 0.0
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HealthResponse(BaseModel):
+    """Represent the worker health endpoint response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["ok"] = "ok"
+
+
+class WorkerStatus(BaseModel):
+    """Expose static worker identity and locally hosted executors."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    worker_id: NonEmptyString
+    executors: list[NonEmptyString]
