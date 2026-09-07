@@ -5,6 +5,18 @@ class InfraMasError(Exception):
     """Base class for expected infrastructure MAS failures."""
 
 
+class AgentNotFoundError(InfraMasError):
+    """Raised when a semantic agent name is not registered."""
+
+
+class ExecutorNotFoundError(InfraMasError):
+    """Raised when a physical executor ID is not registered."""
+
+
+class NoExecutorAvailableError(InfraMasError):
+    """Raised when scheduling finds no compatible physical executor."""
+
+
 class ArtifactNotFoundError(InfraMasError):
     """Raised when a referenced artifact is unavailable."""
 
