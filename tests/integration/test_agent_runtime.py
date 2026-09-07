@@ -5,10 +5,14 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 
 import httpx
+import pytest
 
 from infra_mas.core.agent import AgentSpec
+from infra_mas.core.errors import ExecutionFailedError
+from infra_mas.core.execution import ExecutionRequest
 from infra_mas.core.executor import ExecutorSpec
 from infra_mas.core.model import ModelRequest, ModelResult
+from infra_mas.core.trace import TraceEvent
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.execution.manager import ExecutionManager
 from infra_mas.execution.transfer import TransferManager
@@ -104,12 +108,19 @@ async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
                 "reasoning": "worker-b-reasoner",
             },
         )
+        trace = TraceRecorder(tmp_path / "runs", "run-001")
+        await trace.start(
+            {
+                "scheduler": "fixed",
+                "agents": ["vision_extractor", "reasoner"],
+            }
+        )
         transfer_manager = TransferManager(
             clients,
             tmp_path / "transfers",
-            TraceRecorder(tmp_path / "runs", "run-001"),
+            trace,
         )
-        manager = ExecutionManager(clients, transfer_manager)
+        manager = ExecutionManager(clients, transfer_manager, trace)
         request_ids = iter(["vision-request", "reasoning-request"])
         runtime = AgentRuntime(
             AgentRegistry(
@@ -128,6 +139,7 @@ async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
             ),
             scheduler,
             manager,
+            trace,
             request_id_factory=lambda: next(request_ids),
         )
 
@@ -140,6 +152,10 @@ async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
             "reasoner",
             "Answer from the evidence.",
             vision_result.output_artifacts,
+            parent_action_id="vision-request",
+        )
+        await trace.end(
+            {"final_artifacts": [artifact.id for artifact in reasoning_result.output_artifacts]}
         )
 
     assert vision_result.executor_id == "worker-a-vision"
@@ -148,3 +164,87 @@ async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
     assert reasoning_result.transfer_ms > 0
     answer_path = await store_b.get_path(reasoning_result.output_artifacts[0].id)
     assert answer_path.read_text(encoding="utf-8") == "answer from evidence"
+
+    events = [
+        TraceEvent.model_validate_json(line)
+        for line in trace.path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event.event_type for event in events] == [
+        "run.start",
+        "execution.request",
+        "executor.selected",
+        "worker.execution.start",
+        "worker.execution.end",
+        "artifact.created",
+        "execution.request",
+        "executor.selected",
+        "artifact.transfer.start",
+        "artifact.transfer.end",
+        "worker.execution.start",
+        "worker.execution.end",
+        "artifact.created",
+        "run.end",
+    ]
+    reasoning_request = events[6]
+    assert reasoning_request.action_id == "reasoning-request"
+    assert reasoning_request.parent_action_id == "vision-request"
+    assert reasoning_request.model_extra == {
+        "request_id": "reasoning-request",
+        "agent": "reasoner",
+        "capability": "reasoning",
+        "task": "Answer from the evidence.",
+        "input_artifacts": [vision_result.output_artifacts[0].id],
+    }
+    assert trace.config_path.exists()
+    assert trace.result_path.exists()
+
+
+async def test_failed_worker_execution_records_end_event(tmp_path: Path) -> None:
+    store = ArtifactStore(tmp_path / "worker", "worker")
+    worker = WorkerService(
+        "worker",
+        store,
+        [WorkerExecutor("worker-llm", "reasoning", MockBackend(fail=True))],
+    )
+    trace = TraceRecorder(tmp_path / "runs", "run-001")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app(worker)),
+        base_url="http://worker.test",
+    ) as http_client:
+        clients = {"worker": WorkerClient(client=http_client)}
+        manager = ExecutionManager(
+            clients,
+            TransferManager(clients, tmp_path / "transfers", trace),
+            trace,
+        )
+        with pytest.raises(ExecutionFailedError, match="mock model execution failed"):
+            await manager.execute(
+                ExecutionRequest(
+                    request_id="request-failed",
+                    agent="reasoner",
+                    capability="reasoning",
+                    task="Reason.",
+                    inputs=[],
+                ),
+                ExecutorSpec(
+                    id="worker-llm",
+                    capability="reasoning",
+                    worker_id="worker",
+                    model="mock",
+                    device="cpu",
+                    site="local",
+                ),
+            )
+
+    events = [
+        TraceEvent.model_validate_json(line)
+        for line in trace.path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event.event_type for event in events] == [
+        "worker.execution.start",
+        "worker.execution.end",
+    ]
+    failure_details = events[-1].model_extra
+    assert failure_details is not None
+    assert failure_details["success"] is False

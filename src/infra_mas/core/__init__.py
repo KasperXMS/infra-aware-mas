@@ -22,6 +22,7 @@ from infra_mas.core.execution import (
 )
 from infra_mas.core.executor import ExecutorSpec
 from infra_mas.core.model import ModelRequest, ModelResult
+from infra_mas.core.trace import TraceEvent, TraceSink
 
 __all__ = [
     "AgentSpec",
@@ -41,6 +42,8 @@ __all__ = [
     "ModelResult",
     "NoExecutorAvailableError",
     "TransferResult",
+    "TraceEvent",
+    "TraceSink",
     "WorkerStatus",
     "WorkerUnavailableError",
 ]

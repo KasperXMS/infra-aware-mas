@@ -4,21 +4,13 @@ import asyncio
 from collections.abc import Mapping
 from pathlib import Path
 from time import perf_counter
-from typing import Protocol
 from uuid import uuid4
 
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ArtifactTransferError
 from infra_mas.core.execution import TransferResult
+from infra_mas.core.trace import TraceSink
 from infra_mas.execution.worker_client import WorkerClient
-
-
-class TransferTraceSink(Protocol):
-    """Accept transfer events without coupling execution to a trace implementation."""
-
-    async def record(self, event_type: str, **fields: object) -> None:
-        """Record one structured trace event."""
-        ...
 
 
 class TransferManager:
@@ -28,7 +20,7 @@ class TransferManager:
         self,
         clients: Mapping[str, WorkerClient],
         temporary_directory: Path,
-        trace: TransferTraceSink,
+        trace: TraceSink,
     ) -> None:
         self._clients = dict(clients)
         self._temporary_directory = temporary_directory.resolve()
@@ -61,15 +53,15 @@ class TransferManager:
             )
         source = self._clients[source_worker_id]
         temporary = self._temporary_directory / f"transfer-{uuid4().hex}.artifact"
-        trace_context = self._trace_context(action_id, parent_action_id)
 
         await self._trace.record(
             "artifact.transfer.start",
+            action_id=action_id,
+            parent_action_id=parent_action_id,
             artifact_id=artifact.id,
             source_worker_id=source_worker_id,
             target_worker_id=target_worker_id,
             expected_bytes=artifact.size_bytes,
-            **trace_context,
         )
         started_at = perf_counter()
         bytes_transferred = 0
@@ -101,19 +93,22 @@ class TransferManager:
             )
             await self._trace.record(
                 "artifact.transfer.end",
+                action_id=action_id,
+                parent_action_id=parent_action_id,
                 artifact_id=artifact.id,
                 source_worker_id=source_worker_id,
                 target_worker_id=target_worker_id,
                 bytes_transferred=result.bytes_transferred,
                 transfer_ms=result.transfer_ms,
                 success=True,
-                **trace_context,
             )
             return result
         except Exception as error:
             transfer_ms = (perf_counter() - started_at) * 1000
             await self._trace.record(
                 "artifact.transfer.end",
+                action_id=action_id,
+                parent_action_id=parent_action_id,
                 artifact_id=artifact.id,
                 source_worker_id=source_worker_id,
                 target_worker_id=target_worker_id,
@@ -122,7 +117,6 @@ class TransferManager:
                 success=False,
                 error_type=type(error).__name__,
                 error=str(error),
-                **trace_context,
             )
             if isinstance(error, ArtifactTransferError):
                 raise
@@ -133,15 +127,3 @@ class TransferManager:
         finally:
             if await asyncio.to_thread(temporary.is_file):
                 await asyncio.to_thread(temporary.unlink)
-
-    @staticmethod
-    def _trace_context(
-        action_id: str | None,
-        parent_action_id: str | None,
-    ) -> dict[str, object]:
-        context: dict[str, object] = {}
-        if action_id is not None:
-            context["action_id"] = action_id
-        if parent_action_id is not None:
-            context["parent_action_id"] = parent_action_id
-        return context
