@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionContentPartImageParam,
     ChatCompletionContentPartTextParam,
+    ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
@@ -80,7 +81,11 @@ class OpenAICompatibleBackend:
         for raw_path in request.input_paths:
             content.append(await self._content_part(Path(raw_path)))
 
-        message: ChatCompletionUserMessageParam = {
+        system_message: ChatCompletionSystemMessageParam = {
+            "role": "system",
+            "content": request.instructions,
+        }
+        user_message: ChatCompletionUserMessageParam = {
             "role": "user",
             "content": content,
         }
@@ -88,7 +93,7 @@ class OpenAICompatibleBackend:
         try:
             completion = await self._client.chat.completions.create(
                 model=self._model,
-                messages=[message],
+                messages=[system_message, user_message],
                 max_tokens=self._max_tokens,
                 temperature=self._temperature,
             )

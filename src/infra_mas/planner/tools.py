@@ -46,7 +46,10 @@ async def execute_delegation(
     summaries: list[str] = []
     for artifact in result.output_artifacts:
         if context.artifact_catalog.is_inspectable(artifact):
-            text = await context.artifact_catalog.inspect_text(artifact.id)
+            text = await context.artifact_catalog.inspect_text(
+                artifact.id,
+                parent_action_id=action_id,
+            )
             if len(text) > _MAX_DELEGATE_SUMMARY_CHARS:
                 text = f"{text[:_MAX_DELEGATE_SUMMARY_CHARS]}\n[truncated]"
             summaries.append(text)
@@ -68,7 +71,10 @@ async def inspect_artifact_text(context: PlannerContext, artifact_id: str) -> st
         parent_action_id=context.coordinator_action_id,
         artifact_id=artifact_id,
     )
-    return await context.artifact_catalog.inspect_text(artifact_id)
+    return await context.artifact_catalog.inspect_text(
+        artifact_id,
+        parent_action_id=action_id,
+    )
 
 
 @function_tool

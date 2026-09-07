@@ -6,10 +6,12 @@ import asyncio
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ArtifactNotFoundError
+from infra_mas.core.trace import TraceSink
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.runtime.agent_registry import AgentRegistry
 from infra_mas.runtime.runtime import AgentRuntime
@@ -26,10 +28,6 @@ _TEXT_ARTIFACT_TYPES = frozenset(
 )
 
 
-def _empty_run_metadata() -> dict[str, object]:
-    return {}
-
-
 class ArtifactCatalog:
     """Resolve artifact IDs and inspect only bounded textual artifacts."""
 
@@ -37,6 +35,7 @@ class ArtifactCatalog:
         self,
         clients: Mapping[str, WorkerClient],
         temporary_directory: Path,
+        trace: TraceSink,
         *,
         max_inspect_bytes: int = 64 * 1024,
     ) -> None:
@@ -46,6 +45,7 @@ class ArtifactCatalog:
         self._temporary_directory = temporary_directory.resolve()
         self._temporary_directory.mkdir(parents=True, exist_ok=True)
         self._max_inspect_bytes = max_inspect_bytes
+        self._trace = trace
         self._artifacts: dict[str, ArtifactRef] = {}
 
     def register(self, artifact: ArtifactRef) -> ArtifactRef:
@@ -85,7 +85,12 @@ class ArtifactCatalog:
         )
         return is_text and artifact.size_bytes <= self._max_inspect_bytes
 
-    async def inspect_text(self, artifact_id: str) -> str:
+    async def inspect_text(
+        self,
+        artifact_id: str,
+        *,
+        parent_action_id: str | None = None,
+    ) -> str:
         """Download and decode one bounded textual artifact for planner inspection."""
         artifact = self.get(artifact_id)
         if not self.is_inspectable(artifact):
@@ -103,7 +108,22 @@ class ArtifactCatalog:
         if source is None:
             raise ArtifactNotFoundError(f"no reachable location for artifact {artifact_id!r}")
 
+        source_worker_id = next(
+            location for location in artifact.locations if location in self._clients
+        )
+        action_id = f"{self._trace.run_id}/inspect-transfer-{uuid4().hex}"
         temporary = self._temporary_directory / f"inspect-{uuid4().hex}.artifact"
+        await self._trace.record(
+            "artifact.inspect.start",
+            action_id=action_id,
+            parent_action_id=parent_action_id,
+            artifact_id=artifact.id,
+            source_worker_id=source_worker_id,
+            target="planner",
+            expected_bytes=artifact.size_bytes,
+        )
+        started_at = perf_counter()
+        downloaded = 0
         try:
             downloaded = await source.download_artifact(artifact.id, temporary)
             if downloaded != artifact.size_bytes:
@@ -112,9 +132,36 @@ class ArtifactCatalog:
                     f"to {downloaded} bytes"
                 )
             try:
-                return await asyncio.to_thread(temporary.read_text, encoding="utf-8")
+                text = await asyncio.to_thread(temporary.read_text, encoding="utf-8")
             except UnicodeDecodeError as error:
                 raise ValueError(f"artifact {artifact_id!r} is not valid UTF-8 text") from error
+            await self._trace.record(
+                "artifact.inspect.end",
+                action_id=action_id,
+                parent_action_id=parent_action_id,
+                artifact_id=artifact.id,
+                source_worker_id=source_worker_id,
+                target="planner",
+                bytes_transferred=downloaded,
+                transfer_ms=(perf_counter() - started_at) * 1000,
+                success=True,
+            )
+            return text
+        except Exception as error:
+            await self._trace.record(
+                "artifact.inspect.end",
+                action_id=action_id,
+                parent_action_id=parent_action_id,
+                artifact_id=artifact.id,
+                source_worker_id=source_worker_id,
+                target="planner",
+                bytes_transferred=downloaded,
+                transfer_ms=(perf_counter() - started_at) * 1000,
+                success=False,
+                error_type=type(error).__name__,
+                error=str(error),
+            )
+            raise
         finally:
             if await asyncio.to_thread(temporary.is_file):
                 await asyncio.to_thread(temporary.unlink)
@@ -128,7 +175,6 @@ class PlannerContext:
     agent_registry: AgentRegistry
     artifact_catalog: ArtifactCatalog
     trace: TraceRecorder
-    run_metadata: dict[str, object] = field(default_factory=_empty_run_metadata)
     resource_provider: object | None = None
     resource_aware: bool = False
     _action_counter: int = field(default=0, init=False, repr=False)

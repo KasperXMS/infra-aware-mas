@@ -18,9 +18,11 @@ from infra_mas.core.errors import (
     WorkerUnavailableError,
 )
 from infra_mas.core.execution import (
+    ArtifactPullRequest,
     ExecutionRequest,
     ExecutionResult,
     HealthResponse,
+    TransferResult,
     WorkerStatus,
 )
 
@@ -62,6 +64,11 @@ class WorkerClient:
         """Close the internally owned HTTP connection pool."""
         if self._owns_client:
             await self._client.aclose()
+
+    @property
+    def base_url(self) -> str:
+        """Return the configured network endpoint for Worker-to-Worker pulls."""
+        return str(self._client.base_url)
 
     async def health(self) -> HealthResponse:
         """Fetch and validate worker health."""
@@ -138,6 +145,15 @@ class WorkerClient:
             content=self._file_chunks(source),
         )
         return ArtifactRef.model_validate(response.json())
+
+    async def pull_artifact(self, request: ArtifactPullRequest) -> TransferResult:
+        """Tell this target Worker to pull directly from a source Worker."""
+        response = await self._request(
+            "POST",
+            "/transfers/pull",
+            json_payload=request.model_dump(mode="json"),
+        )
+        return TransferResult.model_validate(response.json())
 
     async def _request(
         self,

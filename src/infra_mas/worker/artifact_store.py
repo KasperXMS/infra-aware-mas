@@ -95,6 +95,12 @@ class ArtifactStore:
         """Return whether an artifact is locally available."""
         return await asyncio.to_thread(self._path_for(artifact_id).is_file)
 
+    async def delete(self, artifact_id: str) -> None:
+        """Remove one local artifact when a transfer fails integrity validation."""
+        path = self._path_for(artifact_id)
+        if await asyncio.to_thread(path.is_file):
+            await asyncio.to_thread(path.unlink)
+
     def _path_for(self, artifact_id: str) -> Path:
         normalized = PurePosixPath(artifact_id)
         raw_parts = artifact_id.split("/")

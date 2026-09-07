@@ -63,6 +63,7 @@ async def test_controller_executes_request_and_downloads_output(tmp_path: Path) 
                 request_id="request-001",
                 agent="reasoner",
                 capability="reasoning",
+                instructions="Reason over evidence.",
                 task="Answer from the evidence.",
                 inputs=[input_artifact],
             )
@@ -74,7 +75,7 @@ async def test_controller_executes_request_and_downloads_output(tmp_path: Path) 
     assert status.worker_id == "worker-1"
     assert status.executors == ["worker-1-reasoner"]
     assert result.executor_id == "worker-1-reasoner"
-    assert result.compute_ms == 25
+    assert result.service_ms == 25
     assert result.output_artifacts[0].locations == ["worker-1"]
     assert transferred == len(b"mock answer")
     assert destination.read_text(encoding="utf-8") == "mock answer"
@@ -132,6 +133,7 @@ async def test_missing_execution_input_is_typed(tmp_path: Path) -> None:
                     request_id="request-001",
                     agent="reasoner",
                     capability="reasoning",
+                    instructions="Reason over evidence.",
                     task="Answer from the evidence.",
                     inputs=[missing],
                 )
@@ -165,6 +167,7 @@ async def test_scheduler_selected_executor_is_honored(tmp_path: Path) -> None:
         request_id="request-001",
         agent="reasoner",
         capability="reasoning",
+        instructions="Reason over evidence.",
         task="Answer the question.",
         inputs=[],
     )
@@ -197,6 +200,7 @@ async def test_invalid_backend_result_is_rejected(tmp_path: Path) -> None:
                 request_id="run-001/request-001",
                 agent="reasoner",
                 capability="reasoning",
+                instructions="Reason over evidence.",
                 task="Answer the question.",
                 inputs=[],
             )

@@ -28,6 +28,7 @@ def request(capability: str = "reasoning") -> ExecutionRequest:
         request_id="request-001",
         agent="reasoner",
         capability=capability,
+        instructions="Reason carefully.",
         task="Reason.",
         inputs=[],
     )

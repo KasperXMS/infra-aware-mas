@@ -99,10 +99,16 @@ uv run infra-mas-run \
 ```
 
 Use repeated `--input` arguments for multiple files. Inputs are streamed to the configured ingress
-Worker. Subsequent cross-Worker movement is explicit and recorded by the transfer layer.
+Worker. For subsequent movement, the Controller sends only a pull instruction: the target Worker
+streams bytes directly from the source Worker. Source, target, byte count, and transfer latency are
+recorded by the transfer layer.
 
 Each run prints the final answer and writes `config.yaml`, `trace.jsonl`, and `result.json` beneath
 `runs/<run-id>/`. Use `--run-id name` when a stable run name is useful.
+
+Execution results report `service_ms`, meaning elapsed model-service time including model-server
+queueing, inference, and Worker-to-model RPC latency. `queue_ms` remains zero when queue time cannot
+be observed independently; it is not an inferred compute or queue measurement.
 
 ## Supported model inputs
 

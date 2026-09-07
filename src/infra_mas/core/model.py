@@ -12,6 +12,7 @@ class ModelRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+    instructions: NonEmptyString
     task: NonEmptyString
     input_paths: list[NonEmptyString]
 

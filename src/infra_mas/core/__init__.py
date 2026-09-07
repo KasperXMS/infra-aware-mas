@@ -14,6 +14,7 @@ from infra_mas.core.errors import (
     WorkerUnavailableError,
 )
 from infra_mas.core.execution import (
+    ArtifactPullRequest,
     ExecutionRequest,
     ExecutionResult,
     HealthResponse,
@@ -28,6 +29,7 @@ __all__ = [
     "AgentSpec",
     "AgentNotFoundError",
     "ArtifactNotFoundError",
+    "ArtifactPullRequest",
     "ArtifactRef",
     "ArtifactTransferError",
     "ExecutionFailedError",

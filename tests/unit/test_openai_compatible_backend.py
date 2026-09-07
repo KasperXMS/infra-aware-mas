@@ -75,6 +75,7 @@ async def test_backend_builds_text_and_image_request(tmp_path: Path) -> None:
 
     result = await backend.infer(
         ModelRequest(
+            instructions="You are a visual specialist.",
             task="Analyze the inputs.",
             input_paths=[str(text_path), str(image_path)],
         )
@@ -83,7 +84,11 @@ async def test_backend_builds_text_and_image_request(tmp_path: Path) -> None:
     assert result.output_text == "model answer"
     assert result.latency_ms >= 0
     messages = cast(list[dict[str, object]], completions.arguments["messages"])
-    content = cast(list[dict[str, object]], messages[0]["content"])
+    assert messages[0] == {
+        "role": "system",
+        "content": "You are a visual specialist.",
+    }
+    content = cast(list[dict[str, object]], messages[1]["content"])
     assert content[0] == {"type": "text", "text": "Analyze the inputs."}
     assert "observed text" in cast(str, content[1]["text"])
     image_url = cast(dict[str, str], content[2]["image_url"])["url"]
@@ -100,7 +105,13 @@ async def test_backend_rejects_unsupported_binary_input(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ExecutionFailedError, match="unsupported model input media type"):
-        await backend.infer(ModelRequest(task="Read it.", input_paths=[str(binary)]))
+        await backend.infer(
+            ModelRequest(
+                instructions="Read artifacts.",
+                task="Read it.",
+                input_paths=[str(binary)],
+            )
+        )
 
 
 async def test_backend_rejects_empty_model_response() -> None:
@@ -111,7 +122,9 @@ async def test_backend_rejects_empty_model_response() -> None:
     )
 
     with pytest.raises(InvalidModelResponseError, match="textual content"):
-        await backend.infer(ModelRequest(task="Answer.", input_paths=[]))
+        await backend.infer(
+            ModelRequest(instructions="Answer precisely.", task="Answer.", input_paths=[])
+        )
 
 
 async def test_backend_readiness_requires_configured_model() -> None:

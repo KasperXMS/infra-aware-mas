@@ -27,6 +27,14 @@ class EvidenceReasonerBackend:
         return ModelResult(output_text=f"reasoned from: {evidence}", latency_ms=5)
 
 
+class NoControllerRelayClient(WorkerClient):
+    """Fail if TransferManager attempts to download artifact bytes into Controller."""
+
+    async def download_artifact(self, artifact_id: str, destination: Path) -> int:
+        del artifact_id, destination
+        raise AssertionError("Controller must not relay artifact bytes")
+
+
 async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
     store_a = ArtifactStore(tmp_path / "worker-a", "worker-a")
     service_a = WorkerService(
@@ -42,12 +50,6 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
         artifact_id_factory=lambda request: f"run-001/evidence-{request.request_id}",
     )
     store_b = ArtifactStore(tmp_path / "worker-b", "worker-b")
-    service_b = WorkerService(
-        worker_id="worker-b",
-        artifact_store=store_b,
-        executors=[WorkerExecutor("worker-b-reasoner", "reasoning", EvidenceReasonerBackend())],
-        artifact_id_factory=lambda request: f"run-001/answer-{request.request_id}",
-    )
 
     async with AsyncExitStack() as stack:
         http_a = await stack.enter_async_context(
@@ -56,6 +58,13 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
                 base_url="http://worker-a.test",
             )
         )
+        service_b = WorkerService(
+            worker_id="worker-b",
+            artifact_store=store_b,
+            executors=[WorkerExecutor("worker-b-reasoner", "reasoning", EvidenceReasonerBackend())],
+            artifact_id_factory=lambda request: f"run-001/answer-{request.request_id}",
+            transfer_client=http_a,
+        )
         http_b = await stack.enter_async_context(
             httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=create_app(service_b)),
@@ -63,7 +72,7 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
             )
         )
         clients = {
-            "worker-a": WorkerClient(client=http_a),
+            "worker-a": NoControllerRelayClient(client=http_a),
             "worker-b": WorkerClient(client=http_b),
         }
         vision_result = await clients["worker-a"].execute(
@@ -71,6 +80,7 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
                 request_id="request-vision",
                 agent="vision_extractor",
                 capability="visual_understanding",
+                instructions="Extract visual evidence.",
                 task="Extract relevant evidence.",
                 inputs=[],
             ),
@@ -80,7 +90,6 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
         trace = TraceRecorder(tmp_path / "runs", "run-001")
         transfer = await TransferManager(
             clients,
-            tmp_path / "transfers",
             trace,
         ).ensure_local(evidence, "worker-b", action_id="action-reasoning")
         reasoning_result = await clients["worker-b"].execute(
@@ -88,6 +97,7 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
                 request_id="request-reasoning",
                 agent="reasoner",
                 capability="reasoning",
+                instructions="Reason over evidence.",
                 task="Answer from the evidence.",
                 inputs=[evidence],
             ),
@@ -106,5 +116,6 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
         "artifact.transfer.end",
     ]
     assert events[1]["bytes_transferred"] == len(b"visual evidence")
+    assert events[1]["path"] == "worker_to_worker"
     assert events[1]["success"] is True
     assert events[1]["action_id"] == "action-reasoning"

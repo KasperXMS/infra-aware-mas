@@ -2,13 +2,27 @@
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Protocol, runtime_checkable
+from urllib.parse import quote
 from uuid import uuid4
 
+import httpx
 from pydantic import ValidationError
 
-from infra_mas.core.errors import ExecutionFailedError, InvalidModelResponseError
-from infra_mas.core.execution import ExecutionRequest, ExecutionResult, WorkerStatus
+from infra_mas.core.artifact import ArtifactRef
+from infra_mas.core.errors import (
+    ArtifactTransferError,
+    ExecutionFailedError,
+    InvalidModelResponseError,
+)
+from infra_mas.core.execution import (
+    ArtifactPullRequest,
+    ExecutionRequest,
+    ExecutionResult,
+    TransferResult,
+    WorkerStatus,
+)
 from infra_mas.core.model import ModelRequest, ModelResult
 from infra_mas.worker.artifact_store import ArtifactStore
 from infra_mas.worker.backends.base import ModelBackend
@@ -45,6 +59,7 @@ class WorkerService:
         artifact_store: ArtifactStore,
         executors: Iterable[WorkerExecutor],
         artifact_id_factory: ArtifactIdFactory | None = None,
+        transfer_client: httpx.AsyncClient | None = None,
     ) -> None:
         if not worker_id.strip():
             raise ValueError("worker_id must not be empty")
@@ -64,6 +79,7 @@ class WorkerService:
         self._artifact_store = artifact_store
         self._executors = {executor.id: executor for executor in executor_list}
         self._artifact_id_factory = artifact_id_factory or self._default_artifact_id
+        self._transfer_client = transfer_client
 
     @property
     def artifact_store(self) -> ArtifactStore:
@@ -98,7 +114,11 @@ class WorkerService:
         executor = self._resolve_executor(request.capability, executor_id)
 
         input_paths = [str(await self._artifact_store.get_path(item.id)) for item in request.inputs]
-        model_request = ModelRequest(task=request.task, input_paths=input_paths)
+        model_request = ModelRequest(
+            instructions=request.instructions,
+            task=request.task,
+            input_paths=input_paths,
+        )
 
         try:
             backend_result = await executor.backend.infer(model_request)
@@ -119,8 +139,69 @@ class WorkerService:
             executor_id=executor.id,
             output_artifacts=[output],
             queue_ms=0.0,
-            compute_ms=model_result.latency_ms,
+            service_ms=model_result.latency_ms,
         )
+
+    async def pull_artifact(self, request: ArtifactPullRequest) -> TransferResult:
+        """Pull an artifact directly from its source Worker into this Worker."""
+        artifact = request.artifact
+        if request.source_worker_id not in artifact.locations:
+            raise ArtifactTransferError(
+                f"artifact {artifact.id!r} is not located on source {request.source_worker_id!r}"
+            )
+        if await self._artifact_store.exists(artifact.id):
+            local_path = await self._artifact_store.get_path(artifact.id)
+            if local_path.stat().st_size != artifact.size_bytes:
+                raise ArtifactTransferError(f"local artifact {artifact.id!r} has unexpected size")
+            return TransferResult(bytes_transferred=0, transfer_ms=0.0)
+
+        url = f"{request.source_endpoint.rstrip('/')}/artifacts/{quote(artifact.id, safe='/')}"
+        started_at = perf_counter()
+        try:
+            if self._transfer_client is None:
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    uploaded = await self._pull_with_client(client, url, request)
+            else:
+                uploaded = await self._pull_with_client(self._transfer_client, url, request)
+        except ArtifactTransferError:
+            raise
+        except httpx.RequestError as error:
+            raise ArtifactTransferError(
+                f"source Worker {request.source_worker_id!r} is unavailable: {error}"
+            ) from error
+        except Exception as error:
+            raise ArtifactTransferError(
+                f"failed to pull artifact {artifact.id!r}: {error}"
+            ) from error
+
+        if uploaded.size_bytes != artifact.size_bytes:
+            await self._artifact_store.delete(artifact.id)
+            raise ArtifactTransferError(
+                f"pulled {uploaded.size_bytes} bytes for {artifact.id!r}; "
+                f"expected {artifact.size_bytes}"
+            )
+        return TransferResult(
+            bytes_transferred=uploaded.size_bytes,
+            transfer_ms=(perf_counter() - started_at) * 1000,
+        )
+
+    async def _pull_with_client(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        request: ArtifactPullRequest,
+    ) -> ArtifactRef:
+        async with client.stream("GET", url) as response:
+            if not response.is_success:
+                await response.aread()
+                raise ArtifactTransferError(
+                    f"source Worker returned HTTP {response.status_code}: {response.text}"
+                )
+            return await self._artifact_store.put_stream(
+                request.artifact.id,
+                response.aiter_bytes(),
+                request.artifact.artifact_type,
+            )
 
     def _resolve_executor(self, capability: str, executor_id: str | None) -> WorkerExecutor:
         if executor_id is not None:

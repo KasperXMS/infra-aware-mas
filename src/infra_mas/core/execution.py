@@ -18,6 +18,7 @@ class ExecutionRequest(BaseModel):
     request_id: NonEmptyString
     agent: NonEmptyString
     capability: NonEmptyString
+    instructions: NonEmptyString
     task: NonEmptyString
     inputs: list[ArtifactRef]
 
@@ -30,8 +31,17 @@ class ExecutionResult(BaseModel):
     request_id: NonEmptyString
     executor_id: NonEmptyString
     output_artifacts: list[ArtifactRef]
-    queue_ms: NonNegativeFloat
-    compute_ms: NonNegativeFloat
+    queue_ms: NonNegativeFloat = Field(
+        description=(
+            "Observed scheduler/worker queue time; zero when it cannot be observed separately"
+        )
+    )
+    service_ms: NonNegativeFloat = Field(
+        description=(
+            "Elapsed model service time, including model-server queueing, inference, "
+            "and RPC latency"
+        )
+    )
     transfer_ms: NonNegativeFloat = 0.0
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -60,3 +70,13 @@ class TransferResult(BaseModel):
 
     bytes_transferred: Annotated[int, Field(ge=0)]
     transfer_ms: NonNegativeFloat
+
+
+class ArtifactPullRequest(BaseModel):
+    """Instruct a target Worker to pull an artifact directly from a source Worker."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    artifact: ArtifactRef
+    source_worker_id: NonEmptyString
+    source_endpoint: NonEmptyString

@@ -44,6 +44,7 @@ class AgentRuntime:
             request_id=self._request_id_factory(),
             agent=agent.name,
             capability=agent.capability,
+            instructions=agent.instructions,
             task=task,
             inputs=inputs,
         )

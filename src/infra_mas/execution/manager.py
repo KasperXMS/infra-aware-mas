@@ -84,7 +84,7 @@ class ExecutionManager:
             executor=executor.id,
             worker_id=executor.worker_id,
             queue_ms=result.queue_ms,
-            compute_ms=result.compute_ms,
+            service_ms=result.service_ms,
             transfer_ms=result.transfer_ms,
             output_artifacts=[artifact.id for artifact in result.output_artifacts],
             success=True,

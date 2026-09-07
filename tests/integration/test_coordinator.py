@@ -201,12 +201,6 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
         artifact_id_factory=lambda request: f"run-001/evidence-{request.request_id}",
     )
     store_b = ArtifactStore(tmp_path / "worker-b", "worker-b")
-    worker_b = WorkerService(
-        "worker-b",
-        store_b,
-        [WorkerExecutor("worker-b-reasoner", "reasoning", EvidenceReasonerBackend())],
-        artifact_id_factory=lambda request: f"run-001/answer-{request.request_id}",
-    )
 
     async with AsyncExitStack() as stack:
         http_a = await stack.enter_async_context(
@@ -214,6 +208,13 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
                 transport=httpx.ASGITransport(app=create_app(worker_a)),
                 base_url="http://worker-a.test",
             )
+        )
+        worker_b = WorkerService(
+            "worker-b",
+            store_b,
+            [WorkerExecutor("worker-b-reasoner", "reasoning", EvidenceReasonerBackend())],
+            artifact_id_factory=lambda request: f"run-001/answer-{request.request_id}",
+            transfer_client=http_a,
         )
         http_b = await stack.enter_async_context(
             httpx.AsyncClient(
@@ -265,7 +266,7 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
             },
         )
         trace = TraceRecorder(tmp_path / "runs", "run-001")
-        transfer = TransferManager(clients, tmp_path / "transfers", trace)
+        transfer = TransferManager(clients, trace)
         manager = ExecutionManager(clients, transfer, trace)
         request_ids = iter(["vision-request", "reasoning-request"])
         runtime = AgentRuntime(
@@ -281,13 +282,15 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
             trace,
             request_id_factory=lambda: next(request_ids),
         )
-        catalog = ArtifactCatalog(clients, tmp_path / "inspection")
+        catalog = ArtifactCatalog(clients, tmp_path / "inspection", trace)
         context = PlannerContext(runtime, agents, catalog, trace)
         model = ScriptedCoordinatorModel()
 
+        await trace.start({"test": "coordinator"})
         answer = await Coordinator(context, model=model).run(
             "Analyze the visual information and answer the question."
         )
+        await trace.end({"success": True, "answer": answer})
 
     assert answer == "answer from evidence"
     assert [artifact.id for artifact in catalog.list()] == [
@@ -306,5 +309,20 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
     ]
     assert [event.event_type for event in events].count("planner.delegate") == 2
     assert [event.event_type for event in events].count("planner.inspect_artifact") == 1
+    assert [event.event_type for event in events].count("planner.llm.start") == 4
+    assert [event.event_type for event in events].count("planner.llm.end") == 4
+    llm_end = next(event for event in events if event.event_type == "planner.llm.end")
+    assert llm_end.model_extra is not None
+    assert llm_end.model_extra["turn"] == 1
+    assert llm_end.model_extra["latency_ms"] >= 0
+    assert llm_end.model_extra["token_usage"] == {
+        "requests": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+    }
+    planner_finish = events[-2]
+    assert planner_finish.model_extra is not None
+    assert planner_finish.model_extra["turn_count"] == 4
     assert events[-2].event_type == "planner.finish"
     assert events[-1].event_type == "run.end"

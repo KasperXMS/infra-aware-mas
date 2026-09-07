@@ -10,8 +10,15 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from infra_mas.core.artifact import ArtifactRef
-from infra_mas.core.errors import ArtifactNotFoundError, ExecutionFailedError
-from infra_mas.core.execution import ExecutionRequest, ExecutionResult, HealthResponse, WorkerStatus
+from infra_mas.core.errors import ArtifactNotFoundError, ArtifactTransferError, ExecutionFailedError
+from infra_mas.core.execution import (
+    ArtifactPullRequest,
+    ExecutionRequest,
+    ExecutionResult,
+    HealthResponse,
+    TransferResult,
+    WorkerStatus,
+)
 from infra_mas.worker.service import WorkerService
 
 STREAM_CHUNK_SIZE = 64 * 1024
@@ -78,12 +85,24 @@ def create_app(service: WorkerService) -> FastAPI:
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
+    async def pull_artifact(pull_request: ArtifactPullRequest) -> TransferResult:
+        try:
+            return await service.pull_artifact(pull_request)
+        except ArtifactTransferError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
     app.add_api_route("/health", health, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/ready", ready, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/status", status, methods=["GET"], response_model=WorkerStatus)
     app.add_api_route("/execute", execute, methods=["POST"], response_model=ExecutionResult)
     app.add_api_route("/artifacts/{artifact_id:path}", download_artifact, methods=["GET"])
     app.add_api_route("/artifacts", upload_artifact, methods=["POST"], response_model=ArtifactRef)
+    app.add_api_route(
+        "/transfers/pull",
+        pull_artifact,
+        methods=["POST"],
+        response_model=TransferResult,
+    )
 
     return app
 

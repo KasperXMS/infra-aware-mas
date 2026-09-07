@@ -5,6 +5,7 @@ from pydantic import BaseModel, ValidationError
 
 from infra_mas.core import (
     AgentSpec,
+    ArtifactPullRequest,
     ArtifactRef,
     ExecutionRequest,
     ExecutionResult,
@@ -61,6 +62,7 @@ INVALID_MODEL_CASES: list[tuple[type[BaseModel], dict[str, object]]] = [
             "request_id": "request-001",
             "agent": "reasoner",
             "capability": "reasoning",
+            "instructions": "Reason over evidence.",
             "task": "",
             "inputs": [],
         },
@@ -72,10 +74,10 @@ INVALID_MODEL_CASES: list[tuple[type[BaseModel], dict[str, object]]] = [
             "executor_id": "gpu-1-llm",
             "output_artifacts": [],
             "queue_ms": -0.1,
-            "compute_ms": 10.0,
+            "service_ms": 10.0,
         },
     ),
-    (ModelRequest, {"task": "", "input_paths": []}),
+    (ModelRequest, {"instructions": "Follow instructions.", "task": "", "input_paths": []}),
     (ModelResult, {"output_text": "answer", "latency_ms": float("nan")}),
     (TransferResult, {"bytes_transferred": -1, "transfer_ms": 1}),
 ]
@@ -102,6 +104,7 @@ INVALID_MODEL_CASES: list[tuple[type[BaseModel], dict[str, object]]] = [
             request_id="request-001",
             agent="vision_extractor",
             capability="visual_understanding",
+            instructions="Extract task-relevant visual evidence.",
             task="Extract relevant evidence.",
             inputs=[artifact()],
         ),
@@ -110,13 +113,22 @@ INVALID_MODEL_CASES: list[tuple[type[BaseModel], dict[str, object]]] = [
             executor_id="orin-1-vlm",
             output_artifacts=[artifact()],
             queue_ms=1.5,
-            compute_ms=100.0,
+            service_ms=100.0,
         ),
-        ModelRequest(task="Extract relevant evidence.", input_paths=["data/video-001.mp4"]),
+        ModelRequest(
+            instructions="Extract task-relevant visual evidence.",
+            task="Extract relevant evidence.",
+            input_paths=["data/video-001.mp4"],
+        ),
         ModelResult(output_text="Evidence found.", latency_ms=100.0),
         HealthResponse(),
         WorkerStatus(worker_id="orin-1", executors=["orin-1-vlm"]),
         TransferResult(bytes_transferred=18_000, transfer_ms=12.5),
+        ArtifactPullRequest(
+            artifact=artifact(),
+            source_worker_id="orin-1",
+            source_endpoint="http://orin.test",
+        ),
     ],
 )
 def test_json_serialization_round_trip(model: BaseModel) -> None:
@@ -173,14 +185,14 @@ def test_execution_result_metadata_defaults_are_isolated() -> None:
         executor_id="gpu-1-llm",
         output_artifacts=[],
         queue_ms=0,
-        compute_ms=10,
+        service_ms=10,
     )
     second = ExecutionResult(
         request_id="request-002",
         executor_id="gpu-1-llm",
         output_artifacts=[],
         queue_ms=0,
-        compute_ms=10,
+        service_ms=10,
     )
 
     first.metadata["attempt"] = 1

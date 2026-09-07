@@ -232,15 +232,36 @@ async def run_blind_experiment(
     trace = TraceRecorder(runs_root, effective_run_id)
     clients = create_worker_clients(registry, config.worker_timeout_seconds)
     planner_client = None
+    effective_config: dict[str, object] = {
+        "run_id": effective_run_id,
+        "mode": "resource_blind",
+        "resource_aware": False,
+        "task": task,
+        "experiment_config": str(config_path),
+        "agents_config": str(agents_path),
+        "executors_config": str(executors_path),
+        "runs_root": str(runs_root),
+        "temporary_root": str(temporary_root),
+        "input_worker": config.input_worker,
+        "worker_timeout_seconds": config.worker_timeout_seconds,
+        "max_turns": config.max_turns,
+        "input_paths": [str(path.resolve()) for path in inputs],
+        "agents": [agent.model_dump(mode="json") for agent in agents.list()],
+        "executors": [executor.model_dump(mode="json") for executor in registry.list()],
+        "worker_endpoints": registry.worker_endpoints(),
+        "scheduler": config.scheduler.model_dump(mode="json"),
+        "planner": config.planner.model_dump(mode="json"),
+    }
+    await trace.start(effective_config)
     try:
-        preflight = await preflight_workers(registry, clients)
+        await preflight_workers(registry, clients)
         initial_artifacts = await upload_inputs(
             inputs,
             effective_run_id,
             config.input_worker,
             clients[config.input_worker],
         )
-        transfer = TransferManager(clients, temporary_root / "transfers", trace)
+        transfer = TransferManager(clients, trace)
         manager = ExecutionManager(clients, transfer, trace)
         runtime = AgentRuntime(
             agents,
@@ -249,28 +270,26 @@ async def run_blind_experiment(
             trace,
             request_id_factory=lambda: f"{effective_run_id}/request-{uuid4().hex}",
         )
-        catalog = ArtifactCatalog(clients, temporary_root / "inspection")
+        catalog = ArtifactCatalog(clients, temporary_root / "inspection", trace)
         catalog.register_many(initial_artifacts)
         planner_model, planner_client = create_planner_model(config.planner)
-        context = PlannerContext(
-            runtime,
-            agents,
-            catalog,
-            trace,
-            run_metadata={
-                "experiment_config": str(config_path),
-                "scheduler": config.scheduler.type,
-                "workers": preflight.workers,
-                "planner_api": config.planner.api,
-                "planner_model": config.planner.model,
-            },
-        )
+        context = PlannerContext(runtime, agents, catalog, trace)
         answer = await Coordinator(
             context,
             model=planner_model,
             max_turns=config.max_turns,
         ).run(task)
+        await trace.end({"success": True, "answer": answer})
         return answer, trace.result_path.parent
+    except Exception as error:
+        await trace.end(
+            {
+                "success": False,
+                "error_type": type(error).__name__,
+                "error": str(error),
+            }
+        )
+        raise
     finally:
         if planner_client is not None:
             await planner_client.close()
