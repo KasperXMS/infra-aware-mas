@@ -1,4 +1,5 @@
 planner_mode: hybrid
+planner_harness: minimal
 agents_config: agents.yaml
 models_config: models.yaml
 executors_config: executors.yaml

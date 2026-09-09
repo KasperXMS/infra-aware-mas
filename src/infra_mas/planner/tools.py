@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.execution import InvocationSpec
 from infra_mas.planner.context import PlannerContext
+from infra_mas.planner.ledger import CompletedInvocation, PlanningState
 
 _MAX_DELEGATE_SUMMARY_CHARS = 4000
 
@@ -18,6 +19,34 @@ class DelegationToolResult(BaseModel):
     agent: str
     output_artifact_ids: list[str]
     output_text: str
+    planning_state: PlanningState | None = None
+
+
+async def _record_completed_invocation(
+    context: PlannerContext,
+    action_id: str,
+    invocation: InvocationSpec,
+    output_artifact_ids: list[str],
+) -> PlanningState | None:
+    assert context.planning_ledger is not None
+    state = await context.planning_ledger.record_completed(
+        CompletedInvocation(
+            action_id=action_id,
+            model_id=invocation.model_id,
+            role=invocation.role,
+            task=invocation.task,
+            input_artifact_ids=[artifact.id for artifact in invocation.input_artifacts],
+            output_artifact_ids=output_artifact_ids,
+        )
+    )
+    await context.trace.record(
+        "planner.ledger.updated",
+        action_id=action_id,
+        parent_action_id=context.coordinator_action_id,
+        planner_harness=context.planner_harness,
+        planning_state=state.model_dump(mode="json"),
+    )
+    return state if context.planner_harness != "minimal" else None
 
 
 async def _summarize_outputs(
@@ -59,18 +88,22 @@ async def execute_delegation(
         input_artifacts=input_artifact_ids,
     )
     inputs = [context.artifact_catalog.get(artifact_id) for artifact_id in input_artifact_ids]
-    result = await context.runtime.execute(
-        agent,
-        task,
-        inputs,
-        parent_action_id=action_id,
-    )
+    invocation = context.runtime.create_preset_invocation(agent, task, inputs)
+    result = await context.runtime.invoke(invocation, parent_action_id=action_id)
     context.artifact_catalog.register_many(result.output_artifacts)
+    output_artifact_ids = [artifact.id for artifact in result.output_artifacts]
+    planning_state = await _record_completed_invocation(
+        context,
+        action_id,
+        invocation,
+        output_artifact_ids,
+    )
 
     return DelegationToolResult(
         agent=agent,
-        output_artifact_ids=[artifact.id for artifact in result.output_artifacts],
+        output_artifact_ids=output_artifact_ids,
         output_text=await _summarize_outputs(context, result.output_artifacts, action_id),
+        planning_state=planning_state,
     )
 
 
@@ -108,10 +141,18 @@ async def execute_dynamic_invocation(
     )
     result = await context.runtime.invoke(invocation, parent_action_id=action_id)
     context.artifact_catalog.register_many(result.output_artifacts)
+    output_artifact_ids = [artifact.id for artifact in result.output_artifacts]
+    planning_state = await _record_completed_invocation(
+        context,
+        action_id,
+        invocation,
+        output_artifact_ids,
+    )
     return DelegationToolResult(
         agent=role,
-        output_artifact_ids=[artifact.id for artifact in result.output_artifacts],
+        output_artifact_ids=output_artifact_ids,
         output_text=await _summarize_outputs(context, result.output_artifacts, action_id),
+        planning_state=planning_state,
     )
 
 
@@ -145,7 +186,7 @@ async def delegate(
         input_artifact_ids: IDs of artifacts the delegated agent should consume.
     """
     result = await execute_delegation(ctx.context, agent, task, input_artifact_ids)
-    return result.model_dump_json()
+    return result.model_dump_json(exclude_none=True)
 
 
 @function_tool
@@ -174,7 +215,7 @@ async def spawn_agent(
         task,
         input_artifact_ids,
     )
-    return result.model_dump_json()
+    return result.model_dump_json(exclude_none=True)
 
 
 @function_tool

@@ -100,6 +100,7 @@ def test_dynamic_mode_does_not_require_agents_config() -> None:
     )
 
     assert config.agents_config is None
+    assert config.planner_harness == "minimal"
 
 
 def test_static_mode_requires_agents_config() -> None:
@@ -279,6 +280,12 @@ planner:
         }
     ]
     assert snapshot["planner_mode"] == "static_agents"
+    assert snapshot["planner_harness"] == "minimal"
+    assert snapshot["planning_ledger_initial_state"] == {
+        "initial_inputs": [],
+        "unused_initial_inputs": [],
+        "completed_invocations": [],
+    }
     assert snapshot["models"] == [
         {
             "model_id": "test-llm",

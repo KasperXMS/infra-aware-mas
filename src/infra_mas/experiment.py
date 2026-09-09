@@ -61,6 +61,7 @@ class BlindExperimentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     planner_mode: Literal["static_agents", "dynamic_models", "hybrid"] = "static_agents"
+    planner_harness: Literal["minimal", "stateful", "efficient"] = "minimal"
     agents_config: Path | None = Path("agents.yaml")
     models_config: Path = Path("models.yaml")
     executors_config: Path = Path("executors.yaml")
@@ -272,10 +273,12 @@ async def run_blind_experiment(
     trace = TraceRecorder(runs_root, effective_run_id, exclusive=True)
     clients = create_worker_clients(registry, config.worker_timeout_seconds)
     planner_client = None
+    context: PlannerContext | None = None
     effective_config: dict[str, object] = {
         "run_id": effective_run_id,
         "mode": "resource_blind",
         "planner_mode": config.planner_mode,
+        "planner_harness": config.planner_harness,
         "resource_aware": False,
         "task": task,
         "experiment_config": str(config_path),
@@ -288,6 +291,7 @@ async def run_blind_experiment(
         "worker_timeout_seconds": config.worker_timeout_seconds,
         "max_turns": config.max_turns,
         "input_paths": [str(path.resolve()) for path in inputs],
+        "planning_ledger_initial_state": None,
         "agents": (
             [agent.model_dump(mode="json") for agent in agents.list()]
             if agents is not None
@@ -328,22 +332,41 @@ async def run_blind_experiment(
             trace,
             model_registry=models,
             planner_mode=config.planner_mode,
+            planner_harness=config.planner_harness,
         )
+        assert context.planning_ledger is not None
+        initial_planning_state = await context.planning_ledger.snapshot()
+        effective_config["planning_ledger_initial_state"] = (
+            initial_planning_state.model_dump(mode="json")
+        )
+        await trace.save_config(effective_config)
         answer = await Coordinator(
             context,
             model=planner_model,
             max_turns=config.max_turns,
         ).run(task)
-        await trace.end({"success": True, "answer": answer})
+        planning_state = await context.planning_ledger.snapshot()
+        run_result: dict[str, object] = {"success": True, "answer": answer}
+        if config.planner_harness != "minimal":
+            run_result["planner_harness"] = config.planner_harness
+            run_result["planning_ledger"] = planning_state.model_dump(mode="json")
+        await trace.end(run_result)
         return answer, trace.result_path.parent
     except Exception as error:
-        await trace.end(
-            {
-                "success": False,
-                "error_type": type(error).__name__,
-                "error": str(error),
-            }
-        )
+        planning_state = None
+        if context is not None and context.planning_ledger is not None:
+            planning_state = (await context.planning_ledger.snapshot()).model_dump(
+                mode="json"
+            )
+        run_result = {
+            "success": False,
+            "error_type": type(error).__name__,
+            "error": str(error),
+        }
+        if config.planner_harness != "minimal":
+            run_result["planner_harness"] = config.planner_harness
+            run_result["planning_ledger"] = planning_state
+        await trace.end(run_result)
         raise
     finally:
         if planner_client is not None:

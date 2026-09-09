@@ -1,6 +1,6 @@
 """Open-ended Coordinator prompts."""
 
-from infra_mas.planner.context import PlannerMode
+from infra_mas.planner.context import PlannerHarness, PlannerMode
 from infra_mas.runtime.agent_registry import AgentRegistry
 from infra_mas.runtime.model_registry import ModelRegistry
 
@@ -9,6 +9,7 @@ def build_blind_coordinator_instructions(
     model_registry: ModelRegistry,
     agent_registry: AgentRegistry | None,
     planner_mode: PlannerMode,
+    planner_harness: PlannerHarness = "minimal",
 ) -> str:
     """Render logical models and optional presets, never physical infrastructure."""
     model_lines = "\n".join(
@@ -57,4 +58,12 @@ Never choose or mention hosts, devices, executors, replicas, endpoints, queue st
 or resource placement. Physical execution is exclusively the scheduler's responsibility. Pass
 artifacts by ID and never place raw binary data in tool arguments or the final answer."""
     )
+    if planner_harness == "efficient":
+        sections.append(
+            """General efficiency principles:
+- A model invocation consumes resources.
+- Avoid substantially redundant work unless previous evidence is insufficient or contradictory.
+- Before adding work, consider whether existing artifacts are sufficient.
+- Stop once the user task can be adequately answered."""
+        )
     return "\n\n".join(sections)

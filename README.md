@@ -57,6 +57,7 @@ information.
 Then edit `configs/blind.yaml`:
 
 - choose `planner_mode`: `static_agents`, `dynamic_models`, or `hybrid`;
+- choose `planner_harness`: `minimal`, `stateful`, or `efficient`;
 - map each logical `model_id` to a physical executor for the fixed resource-blind scheduler;
 - set the Coordinator model;
 - use `api: responses` for the official OpenAI API, or `api: chat_completions` plus `base_url` for a
@@ -69,6 +70,13 @@ optional and lets the Planner create a role, system instructions, task, and arti
 logical model invocation. `hybrid` exposes both mechanisms. Presets are compatibility conveniences:
 they are converted to the same `InvocationSpec` used by dynamic roles before scheduling and
 execution.
+
+`minimal` preserves the basic tool results. `stateful` also returns a deterministic planning ledger
+after each completed delegation or dynamic invocation, including initial-input use counts, unused
+inputs, and invocation history. `efficient` uses the same execution semantics and adds only generic
+guidance to consider existing evidence, avoid substantially redundant work, and stop when the task
+can be adequately answered. The ledger does not parse task requirements, infer completion, reject
+calls, or prescribe a workflow.
 
 For the official API, set the configured key in the environment. For example in PowerShell:
 
@@ -115,6 +123,10 @@ recorded by the transfer layer.
 Each run prints the final answer and writes `config.yaml`, `trace.jsonl`, and `result.json` beneath
 `runs/<run-id>/`. Use `--run-id name` when a stable run name is useful. A non-empty directory for
 the selected run ID is always rejected; runs are never appended or silently reused.
+
+The effective config records the selected Planner harness and the initial ledger state. Trace events
+record each deterministic ledger update, so completed invocation history can be reconstructed
+offline; stateful and efficient results also include the final ledger snapshot.
 
 Execution results report `service_ms`, meaning elapsed model-service time including model-server
 queueing, inference, and Worker-to-model RPC latency. `queue_ms` remains zero when queue time cannot

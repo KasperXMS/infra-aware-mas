@@ -14,6 +14,7 @@ from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ArtifactNotFoundError
 from infra_mas.core.trace import TraceSink
 from infra_mas.execution.worker_client import WorkerClient
+from infra_mas.planner.ledger import PlanningLedger
 from infra_mas.runtime.agent_registry import AgentRegistry
 from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
@@ -30,6 +31,7 @@ _TEXT_ARTIFACT_TYPES = frozenset(
 )
 
 PlannerMode = Literal["static_agents", "dynamic_models", "hybrid"]
+PlannerHarness = Literal["minimal", "stateful", "efficient"]
 
 
 class ArtifactCatalog:
@@ -181,6 +183,8 @@ class PlannerContext:
     trace: TraceRecorder
     model_registry: ModelRegistry | None = None
     planner_mode: PlannerMode = "static_agents"
+    planner_harness: PlannerHarness = "minimal"
+    planning_ledger: PlanningLedger | None = None
     resource_provider: object | None = None
     resource_aware: bool = False
     _action_counter: int = field(default=0, init=False, repr=False)
@@ -191,6 +195,10 @@ class PlannerContext:
             raise ValueError("PlannerContext requires a ModelRegistry")
         if self.planner_mode in {"static_agents", "hybrid"} and self.agent_registry is None:
             raise ValueError(f"planner mode {self.planner_mode!r} requires an AgentRegistry")
+        if self.planning_ledger is None:
+            self.planning_ledger = PlanningLedger(
+                artifact.id for artifact in self.artifact_catalog.list()
+            )
 
     @property
     def coordinator_action_id(self) -> str:

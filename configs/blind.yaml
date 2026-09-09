@@ -1,5 +1,6 @@
 # Paths are resolved relative to this file.
 planner_mode: hybrid
+planner_harness: minimal
 agents_config: agents.yaml
 models_config: models.yaml
 executors_config: executors.yaml

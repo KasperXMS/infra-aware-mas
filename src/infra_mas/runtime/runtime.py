@@ -52,18 +52,27 @@ class AgentRuntime:
         parent_action_id: str | None = None,
     ) -> ExecutionResult:
         """Resolve an agent, schedule its request, and execute the selected binding."""
+        invocation = self.create_preset_invocation(agent_name, task, inputs)
+        return await self.invoke(invocation, parent_action_id=parent_action_id)
+
+    def create_preset_invocation(
+        self,
+        agent_name: str,
+        task: str,
+        inputs: list[ArtifactRef],
+    ) -> InvocationSpec:
+        """Convert one backward-compatible agent preset to the unified request."""
         if self._agent_registry is None:
             raise ValueError("static agent execution requires an AgentRegistry")
         agent = self._agent_registry.get(agent_name)
         model_id = agent.model_id or self._scheduler.preset_model_id(agent.capability)
-        invocation = InvocationSpec(
+        return InvocationSpec(
             model_id=model_id,
             role=agent.name,
             instructions=agent.instructions,
             task=task,
             input_artifacts=inputs,
         )
-        return await self.invoke(invocation, parent_action_id=parent_action_id)
 
     async def invoke(
         self,
