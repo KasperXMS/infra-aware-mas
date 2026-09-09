@@ -13,6 +13,15 @@ from infra_mas.scheduler.base import Scheduler
 
 RequestIdFactory = Callable[[], str]
 
+_TEXT_APPLICATION_TYPES = frozenset(
+    {
+        "application/json",
+        "application/xml",
+        "application/yaml",
+        "application/x-yaml",
+    }
+)
+
 
 class AgentRuntime:
     """Translate semantic agent delegation into scheduled physical execution."""
@@ -25,7 +34,7 @@ class AgentRuntime:
         trace: TraceSink,
         request_id_factory: RequestIdFactory | None = None,
         *,
-        model_registry: ModelRegistry | None = None,
+        model_registry: ModelRegistry,
     ) -> None:
         self._agent_registry = agent_registry
         self._scheduler = scheduler
@@ -63,8 +72,18 @@ class AgentRuntime:
         parent_action_id: str | None = None,
     ) -> ExecutionResult:
         """Schedule and execute one unified logical model invocation."""
-        if self._model_registry is not None:
-            self._model_registry.get(invocation.model_id)
+        model = self._model_registry.get(invocation.model_id)
+        accepted_modalities = {modality.lower() for modality in model.input_modalities}
+        for artifact in invocation.input_artifacts:
+            modality = self._artifact_modality(artifact.artifact_type)
+            if modality is None or modality not in accepted_modalities:
+                inferred = modality or "unsupported"
+                raise ValueError(
+                    f"model {model.model_id!r} does not accept artifact {artifact.id!r} "
+                    f"with MIME type {artifact.artifact_type!r} "
+                    f"(inferred modality: {inferred!r}); accepted input modalities: "
+                    f"{sorted(accepted_modalities)}"
+                )
         executor = await self._scheduler.select(invocation)
         request = ExecutionRequest(
             request_id=self._request_id_factory(),
@@ -102,3 +121,18 @@ class AgentRuntime:
     @staticmethod
     def _default_request_id() -> str:
         return f"request-{uuid4().hex}"
+
+    @staticmethod
+    def _artifact_modality(artifact_type: str) -> str | None:
+        media_type = artifact_type.partition(";")[0].strip().lower()
+        if media_type.startswith("image/"):
+            return "image"
+        if (
+            media_type.startswith("text/")
+            or media_type in _TEXT_APPLICATION_TYPES
+            or media_type.endswith("+json")
+            or media_type.endswith("+xml")
+            or media_type.endswith("+yaml")
+        ):
+            return "text"
+        return None

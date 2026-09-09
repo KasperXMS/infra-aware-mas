@@ -8,16 +8,18 @@ import httpx
 import pytest
 
 from infra_mas.core.agent import AgentSpec
+from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ExecutionFailedError
-from infra_mas.core.execution import ExecutionRequest
+from infra_mas.core.execution import ExecutionRequest, InvocationSpec
 from infra_mas.core.executor import ExecutorSpec
-from infra_mas.core.model import ModelRequest, ModelResult
+from infra_mas.core.model import ModelRequest, ModelResult, ModelSpec
 from infra_mas.core.trace import TraceEvent
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.execution.manager import ExecutionManager
 from infra_mas.execution.transfer import TransferManager
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.runtime.agent_registry import AgentRegistry
+from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
 from infra_mas.scheduler.fixed import FixedScheduler
 from infra_mas.tracing.recorder import TraceRecorder
@@ -47,6 +49,26 @@ class InstructionCapturingBackend:
     async def infer(self, request: ModelRequest) -> ModelResult:
         self.requests.append(request)
         return ModelResult(output_text="done", latency_ms=1)
+
+
+class SchedulingReached(RuntimeError):
+    """Signal that modality validation completed before physical selection."""
+
+
+class CountingScheduler:
+    """Observe whether an invocation reaches scheduling."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def select(self, invocation: InvocationSpec) -> ExecutorSpec:
+        del invocation
+        self.calls += 1
+        raise SchedulingReached
+
+    def preset_model_id(self, capability: str) -> str:
+        del capability
+        return "test-model"
 
 
 async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
@@ -152,6 +174,24 @@ async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
             manager,
             trace,
             request_id_factory=lambda: next(request_ids),
+            model_registry=ModelRegistry(
+                [
+                    ModelSpec(
+                        model_id="mock-vlm",
+                        description="Vision model.",
+                        input_modalities=["text", "image"],
+                        output_modalities=["text"],
+                        context_window=8192,
+                    ),
+                    ModelSpec(
+                        model_id="mock-llm",
+                        description="Reasoning model.",
+                        input_modalities=["text"],
+                        output_modalities=["text"],
+                        context_window=8192,
+                    ),
+                ]
+            ),
         )
 
         vision_result = await runtime.execute(
@@ -302,6 +342,17 @@ async def test_distinct_agent_instructions_reach_backend(tmp_path: Path) -> None
             FixedScheduler(registry, {"reasoning": "worker-llm"}),
             ExecutionManager(clients, TransferManager(clients, trace), trace),
             trace,
+            model_registry=ModelRegistry(
+                [
+                    ModelSpec(
+                        model_id="mock",
+                        description="Reasoning model.",
+                        input_modalities=["text"],
+                        output_modalities=["text"],
+                        context_window=8192,
+                    )
+                ]
+            ),
         )
         await runtime.execute("critic", "Review this.", [])
         await runtime.execute("solver", "Answer this.", [])
@@ -311,3 +362,109 @@ async def test_distinct_agent_instructions_reach_backend(tmp_path: Path) -> None
         "Solve precisely.",
     ]
     assert [request.task for request in backend.requests] == ["Review this.", "Answer this."]
+
+
+@pytest.mark.parametrize(
+    ("artifact_type", "input_modality"),
+    [
+        ("image/png", "image"),
+        ("text/plain; charset=utf-8", "text"),
+        ("application/json", "text"),
+        ("application/x-yaml", "text"),
+        ("application/xml", "text"),
+        ("application/problem+json", "text"),
+    ],
+)
+async def test_compatible_artifact_mime_reaches_scheduler(
+    tmp_path: Path,
+    artifact_type: str,
+    input_modality: str,
+) -> None:
+    trace = TraceRecorder(tmp_path / "runs", f"run-{input_modality}")
+    scheduler = CountingScheduler()
+    clients: dict[str, WorkerClient] = {}
+    runtime = AgentRuntime(
+        None,
+        scheduler,
+        ExecutionManager(clients, TransferManager(clients, trace), trace),
+        trace,
+        model_registry=ModelRegistry(
+            [
+                ModelSpec(
+                    model_id="test-model",
+                    description="Modality test model.",
+                    input_modalities=[input_modality],
+                    output_modalities=["text"],
+                    context_window=8192,
+                )
+            ]
+        ),
+    )
+    invocation = InvocationSpec(
+        model_id="test-model",
+        role="tester",
+        instructions="Test the input.",
+        task="Inspect it.",
+        input_artifacts=[
+            ArtifactRef(
+                id="run/input",
+                artifact_type=artifact_type,
+                size_bytes=1,
+                locations=["worker"],
+            )
+        ],
+    )
+
+    with pytest.raises(SchedulingReached):
+        await runtime.invoke(invocation)
+
+    assert scheduler.calls == 1
+
+
+@pytest.mark.parametrize("artifact_type", ["image/jpeg", "audio/mpeg"])
+async def test_incompatible_artifact_mime_is_rejected_before_scheduling(
+    tmp_path: Path,
+    artifact_type: str,
+) -> None:
+    trace = TraceRecorder(tmp_path / "runs", "run-incompatible")
+    scheduler = CountingScheduler()
+    clients: dict[str, WorkerClient] = {}
+    runtime = AgentRuntime(
+        None,
+        scheduler,
+        ExecutionManager(clients, TransferManager(clients, trace), trace),
+        trace,
+        model_registry=ModelRegistry(
+            [
+                ModelSpec(
+                    model_id="text-model",
+                    description="Text-only model.",
+                    input_modalities=["text"],
+                    output_modalities=["text"],
+                    context_window=8192,
+                )
+            ]
+        ),
+    )
+    invocation = InvocationSpec(
+        model_id="text-model",
+        role="tester",
+        instructions="Test the input.",
+        task="Inspect it.",
+        input_artifacts=[
+            ArtifactRef(
+                id="run/input",
+                artifact_type=artifact_type,
+                size_bytes=1,
+                locations=["worker"],
+            )
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=rf"text-model.*run/input.*{artifact_type}",
+    ):
+        await runtime.invoke(invocation)
+
+    assert scheduler.calls == 0
