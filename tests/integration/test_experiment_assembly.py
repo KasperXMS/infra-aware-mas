@@ -240,3 +240,13 @@ planner:
         "success": True,
         "answer": "answer",
     }
+
+    original_trace = (run_directory / "trace.jsonl").read_bytes()
+    with pytest.raises(ValueError, match="already exists and is non-empty"):
+        await run_blind_experiment(
+            config_path,
+            "Reproduce this run.",
+            [],
+            run_id="run-config",
+        )
+    assert (run_directory / "trace.jsonl").read_bytes() == original_trace

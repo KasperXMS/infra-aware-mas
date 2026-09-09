@@ -104,7 +104,8 @@ streams bytes directly from the source Worker. Source, target, byte count, and t
 recorded by the transfer layer.
 
 Each run prints the final answer and writes `config.yaml`, `trace.jsonl`, and `result.json` beneath
-`runs/<run-id>/`. Use `--run-id name` when a stable run name is useful.
+`runs/<run-id>/`. Use `--run-id name` when a stable run name is useful. A non-empty directory for
+the selected run ID is always rejected; runs are never appended or silently reused.
 
 Execution results report `service_ms`, meaning elapsed model-service time including model-server
 queueing, inference, and Worker-to-model RPC latency. `queue_ms` remains zero when queue time cannot

@@ -229,7 +229,7 @@ async def run_blind_experiment(
         raise ValueError(f"unknown input_worker: {config.input_worker!r}")
 
     effective_run_id = run_id or f"blind-{uuid4().hex[:12]}"
-    trace = TraceRecorder(runs_root, effective_run_id)
+    trace = TraceRecorder(runs_root, effective_run_id, exclusive=True)
     clients = create_worker_clients(registry, config.worker_timeout_seconds)
     planner_client = None
     effective_config: dict[str, object] = {

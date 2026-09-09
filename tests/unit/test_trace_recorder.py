@@ -58,3 +58,26 @@ async def test_reserved_trace_fields_cannot_be_overridden(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="reserved fields"):
         await recorder.record("custom.event", run_id="other-run")
+
+
+def test_exclusive_recorder_rejects_non_empty_run_directory(tmp_path: Path) -> None:
+    run_directory = tmp_path / "runs" / "run-001"
+    run_directory.mkdir(parents=True)
+    existing_trace = run_directory / "trace.jsonl"
+    existing_trace.write_text("existing event\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="already exists and is non-empty"):
+        TraceRecorder(tmp_path / "runs", "run-001", exclusive=True)
+
+    assert existing_trace.read_text(encoding="utf-8") == "existing event\n"
+
+
+def test_exclusive_recorder_atomically_reserves_empty_run_directory(tmp_path: Path) -> None:
+    run_directory = tmp_path / "runs" / "run-001"
+    run_directory.mkdir(parents=True)
+
+    recorder = TraceRecorder(tmp_path / "runs", "run-001", exclusive=True)
+
+    assert recorder.path.is_file()
+    with pytest.raises(ValueError, match="already exists and is non-empty"):
+        TraceRecorder(tmp_path / "runs", "run-001", exclusive=True)

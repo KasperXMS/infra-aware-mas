@@ -37,9 +37,9 @@ _ACTION_EVENT_TYPES: Final = frozenset(
 
 
 class TraceRecorder:
-    """Append structured run events safely across concurrent async calls."""
+    """Write structured run events safely across concurrent async calls."""
 
-    def __init__(self, runs_root: Path, run_id: str) -> None:
+    def __init__(self, runs_root: Path, run_id: str, *, exclusive: bool = False) -> None:
         if not run_id.strip():
             raise ValueError("run_id must not be empty")
         if "/" in run_id or "\\" in run_id or ":" in run_id or run_id in {".", ".."}:
@@ -47,10 +47,13 @@ class TraceRecorder:
 
         self._run_id = run_id
         self._run_directory = runs_root.resolve() / run_id
-        self._run_directory.mkdir(parents=True, exist_ok=True)
         self._path = self._run_directory / "trace.jsonl"
         self._config_path = self._run_directory / "config.yaml"
         self._result_path = self._run_directory / "result.json"
+        if exclusive:
+            self._reserve_empty_run_directory()
+        else:
+            self._run_directory.mkdir(parents=True, exist_ok=True)
         self._lock = asyncio.Lock()
 
     @property
@@ -138,6 +141,20 @@ class TraceRecorder:
     def _append_line(self, line: str) -> None:
         with self._path.open("a", encoding="utf-8", newline="") as trace_file:
             trace_file.write(line)
+
+    def _reserve_empty_run_directory(self) -> None:
+        try:
+            self._run_directory.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            if not self._run_directory.is_dir() or any(self._run_directory.iterdir()):
+                raise ValueError(
+                    f"run directory already exists and is non-empty: {self._run_directory}"
+                ) from None
+
+        try:
+            self._path.touch(exist_ok=False)
+        except FileExistsError:
+            raise ValueError(f"run ID is already in use: {self._run_id}") from None
 
     async def _write_atomic(self, destination: Path, content: str) -> None:
         temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.tmp")
