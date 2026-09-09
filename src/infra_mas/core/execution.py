@@ -17,10 +17,23 @@ class ExecutionRequest(BaseModel):
 
     request_id: NonEmptyString
     agent: NonEmptyString
+    model_id: NonEmptyString
     capability: NonEmptyString
     instructions: NonEmptyString
     task: NonEmptyString
     inputs: list[ArtifactRef]
+
+
+class InvocationSpec(BaseModel):
+    """Describe one planner-created logical model invocation."""
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    model_id: NonEmptyString
+    role: NonEmptyString
+    instructions: NonEmptyString
+    task: NonEmptyString
+    input_artifacts: list[ArtifactRef]
 
 
 class ExecutionResult(BaseModel):

@@ -43,13 +43,15 @@ def test_unknown_agent_raises_typed_error() -> None:
 def test_registry_loads_yaml(tmp_path: Path) -> None:
     path = tmp_path / "agents.yaml"
     path.write_text(
-        "agents:\n  reasoner:\n    capability: reasoning\n    instructions: Reason.\n",
+        "agents:\n  reasoner:\n    capability: reasoning\n"
+        "    instructions: Reason.\n    model_id: test-llm\n",
         encoding="utf-8",
     )
 
     registry = AgentRegistry.from_yaml(path)
 
     assert registry.get("reasoner").capability == "reasoning"
+    assert registry.get("reasoner").model_id == "test-llm"
 
 
 def test_registry_rejects_invalid_yaml_config(tmp_path: Path) -> None:

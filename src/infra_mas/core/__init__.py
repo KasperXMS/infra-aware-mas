@@ -10,6 +10,7 @@ from infra_mas.core.errors import (
     ExecutorNotFoundError,
     InfraMasError,
     InvalidModelResponseError,
+    ModelNotFoundError,
     NoExecutorAvailableError,
     WorkerUnavailableError,
 )
@@ -18,16 +19,17 @@ from infra_mas.core.execution import (
     ExecutionRequest,
     ExecutionResult,
     HealthResponse,
+    InvocationSpec,
     TransferResult,
     WorkerStatus,
 )
 from infra_mas.core.executor import ExecutorSpec
-from infra_mas.core.model import ModelRequest, ModelResult
+from infra_mas.core.model import ModelRequest, ModelResult, ModelSpec
 from infra_mas.core.trace import TraceEvent, TraceSink
 
 __all__ = [
-    "AgentSpec",
     "AgentNotFoundError",
+    "AgentSpec",
     "ArtifactNotFoundError",
     "ArtifactPullRequest",
     "ArtifactRef",
@@ -39,9 +41,12 @@ __all__ = [
     "ExecutorSpec",
     "HealthResponse",
     "InfraMasError",
+    "InvocationSpec",
     "InvalidModelResponseError",
+    "ModelNotFoundError",
     "ModelRequest",
     "ModelResult",
+    "ModelSpec",
     "NoExecutorAvailableError",
     "TransferResult",
     "TraceEvent",

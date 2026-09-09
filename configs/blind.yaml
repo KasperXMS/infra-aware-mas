@@ -1,5 +1,7 @@
 # Paths are resolved relative to this file.
+planner_mode: hybrid
 agents_config: agents.yaml
+models_config: models.yaml
 executors_config: executors.yaml
 runs_root: ../runs
 temporary_root: ../.runtime
@@ -12,9 +14,9 @@ max_turns: 10
 scheduler:
   type: fixed
   assignments:
-    visual_understanding: orin-1-vlm
-    reasoning: gpu-1-llm
-    summarization: gpu-1-summarizer
+    local-vlm: orin-1-vlm
+    remote-vlm: gpu-1-vlm
+    remote-llm: gpu-1-llm
 
 planner:
   # Replace this with a model available to your account or compatible server.

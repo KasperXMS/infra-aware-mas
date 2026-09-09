@@ -1,11 +1,11 @@
 """Resource-blind top-level Coordinator."""
 
-from agents import Agent, RunConfig, Runner
+from agents import Agent, RunConfig, Runner, Tool
 from agents.models.interface import Model
 
 from infra_mas.planner.context import PlannerContext
 from infra_mas.planner.prompts import build_blind_coordinator_instructions
-from infra_mas.planner.tools import delegate, inspect_artifact
+from infra_mas.planner.tools import delegate, inspect_artifact, spawn_agent
 from infra_mas.planner.trace_hooks import PlannerTraceHooks
 
 
@@ -27,10 +27,20 @@ class Coordinator:
         self._context = context
         self._max_turns = max_turns
         self._trace_hooks = PlannerTraceHooks(context)
+        assert context.model_registry is not None
+        mode_tools: dict[str, list[Tool]] = {
+            "static_agents": [delegate, inspect_artifact],
+            "dynamic_models": [spawn_agent, inspect_artifact],
+            "hybrid": [delegate, spawn_agent, inspect_artifact],
+        }
         self._agent = Agent[PlannerContext](
             name="coordinator",
-            instructions=build_blind_coordinator_instructions(context.agent_registry),
-            tools=[delegate, inspect_artifact],
+            instructions=build_blind_coordinator_instructions(
+                context.model_registry,
+                context.agent_registry,
+                context.planner_mode,
+            ),
+            tools=mode_tools[context.planner_mode],
             model=model,
         )
 

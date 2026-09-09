@@ -9,12 +9,12 @@ executors:
   worker-a-vision:
     worker_id: worker-a
     capability: visual_understanding
-    model: mock-vlm
+    model_id: mock-vlm
     device: cpu
     site: local-a
   worker-b-reasoner:
     worker_id: worker-b
     capability: reasoning
-    model: mock-llm
+    model_id: mock-llm
     device: cpu
     site: local-b

@@ -62,6 +62,7 @@ async def test_controller_executes_request_and_downloads_output(tmp_path: Path) 
             ExecutionRequest(
                 request_id="request-001",
                 agent="reasoner",
+                model_id="mock",
                 capability="reasoning",
                 instructions="Reason over evidence.",
                 task="Answer from the evidence.",
@@ -132,6 +133,7 @@ async def test_missing_execution_input_is_typed(tmp_path: Path) -> None:
                 ExecutionRequest(
                     request_id="request-001",
                     agent="reasoner",
+                    model_id="mock",
                     capability="reasoning",
                     instructions="Reason over evidence.",
                     task="Answer from the evidence.",
@@ -166,6 +168,7 @@ async def test_scheduler_selected_executor_is_honored(tmp_path: Path) -> None:
     request = ExecutionRequest(
         request_id="request-001",
         agent="reasoner",
+        model_id="mock",
         capability="reasoning",
         instructions="Reason over evidence.",
         task="Answer the question.",
@@ -199,6 +202,7 @@ async def test_invalid_backend_result_is_rejected(tmp_path: Path) -> None:
             ExecutionRequest(
                 request_id="run-001/request-001",
                 agent="reasoner",
+                model_id="mock",
                 capability="reasoning",
                 instructions="Reason over evidence.",
                 task="Answer the question.",

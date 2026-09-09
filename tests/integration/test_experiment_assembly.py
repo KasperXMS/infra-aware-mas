@@ -11,9 +11,11 @@ import yaml
 
 from infra_mas.core.agent import AgentSpec
 from infra_mas.core.executor import ExecutorSpec
+from infra_mas.core.model import ModelSpec
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.experiment import (
+    BlindExperimentConfig,
     FixedSchedulerConfig,
     PreflightResult,
     build_blind_scheduler,
@@ -23,6 +25,7 @@ from infra_mas.experiment import (
 )
 from infra_mas.planner.model_factory import PlannerModelConfig
 from infra_mas.runtime.agent_registry import AgentRegistry
+from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.worker.artifact_store import ArtifactStore
 from infra_mas.worker.backends.mock import MockBackend
 from infra_mas.worker.server import create_app
@@ -41,7 +44,7 @@ async def test_preflight_and_initial_artifact_upload(tmp_path: Path) -> None:
                 id="worker-a-vision",
                 capability="visual_understanding",
                 worker_id="worker-a",
-                model="mock",
+                model_id="mock",
                 device="test",
                 site="local",
             )
@@ -84,7 +87,35 @@ async def test_preflight_rejects_executor_drift(tmp_path: Path) -> None:
             await preflight_workers(registry, {"worker-a": WorkerClient(client=http_client)})
 
 
-def test_fixed_scheduler_requires_every_agent_capability() -> None:
+def test_dynamic_mode_does_not_require_agents_config() -> None:
+    config = BlindExperimentConfig.model_validate(
+        {
+            "planner_mode": "dynamic_models",
+            "agents_config": None,
+            "models_config": "models.yaml",
+            "input_worker": "worker-a",
+            "scheduler": {"type": "round_robin"},
+            "planner": {"model": "planner-model"},
+        }
+    )
+
+    assert config.agents_config is None
+
+
+def test_static_mode_requires_agents_config() -> None:
+    with pytest.raises(ValueError, match="requires agents_config"):
+        BlindExperimentConfig.model_validate(
+            {
+                "planner_mode": "static_agents",
+                "agents_config": None,
+                "input_worker": "worker-a",
+                "scheduler": {"type": "round_robin"},
+                "planner": {"model": "planner-model"},
+            }
+        )
+
+
+def test_fixed_scheduler_requires_every_logical_model() -> None:
     agents = AgentRegistry([AgentSpec(name="reasoner", capability="reasoning", instructions="x")])
     registry = ExecutorRegistry(
         [
@@ -92,16 +123,32 @@ def test_fixed_scheduler_requires_every_agent_capability() -> None:
                 id="worker-a-llm",
                 capability="reasoning",
                 worker_id="worker-a",
-                model="mock",
+                model_id="mock",
                 device="test",
                 site="local",
             )
         ],
         {"worker-a": "http://worker-a.test"},
     )
+    models = ModelRegistry(
+        [
+            ModelSpec(
+                model_id="mock",
+                description="Mock reasoning model.",
+                input_modalities=["text"],
+                output_modalities=["text"],
+                context_window=8192,
+            )
+        ]
+    )
 
     with pytest.raises(ValueError, match="no assignments"):
-        build_blind_scheduler(FixedSchedulerConfig(type="fixed", assignments={}), registry, agents)
+        build_blind_scheduler(
+            FixedSchedulerConfig(type="fixed", assignments={}),
+            registry,
+            models,
+            agents,
+        )
 
 
 class FakeClosable:
@@ -133,6 +180,16 @@ async def test_run_saves_complete_effective_config(
 """,
         encoding="utf-8",
     )
+    (tmp_path / "models.yaml").write_text(
+        """models:
+  test-llm:
+    description: Test reasoning model.
+    input_modalities: [text]
+    output_modalities: [text]
+    context_window: 8192
+""",
+        encoding="utf-8",
+    )
     (tmp_path / "executors.yaml").write_text(
         """workers:
   worker-a:
@@ -142,7 +199,7 @@ executors:
   worker-a-llm:
     worker_id: worker-a
     capability: reasoning
-    model: test-llm
+    model_id: test-llm
     device: cpu
     site: local
 """,
@@ -150,7 +207,9 @@ executors:
     )
     config_path = tmp_path / "blind.yaml"
     config_path.write_text(
-        """agents_config: agents.yaml
+        """planner_mode: static_agents
+agents_config: agents.yaml
+models_config: models.yaml
 executors_config: executors.yaml
 runs_root: runs
 temporary_root: runtime
@@ -158,7 +217,7 @@ input_worker: worker-a
 scheduler:
   type: fixed
   assignments:
-    reasoning: worker-a-llm
+    test-llm: worker-a-llm
 planner:
   model: planner-model
   api: chat_completions
@@ -216,13 +275,24 @@ planner:
             "name": "reasoner",
             "capability": "reasoning",
             "instructions": "Reason exactly.",
+            "model_id": None,
+        }
+    ]
+    assert snapshot["planner_mode"] == "static_agents"
+    assert snapshot["models"] == [
+        {
+            "model_id": "test-llm",
+            "description": "Test reasoning model.",
+            "input_modalities": ["text"],
+            "output_modalities": ["text"],
+            "context_window": 8192,
         }
     ]
     assert snapshot["executors"][0]["id"] == "worker-a-llm"
     assert snapshot["worker_endpoints"] == {"worker-a": "http://worker-a.test"}
     assert snapshot["scheduler"] == {
         "type": "fixed",
-        "assignments": {"reasoning": "worker-a-llm"},
+        "assignments": {"test-llm": "worker-a-llm"},
     }
     assert snapshot["planner"] == {
         "model": "planner-model",

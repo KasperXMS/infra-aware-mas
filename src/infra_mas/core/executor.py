@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -15,6 +15,6 @@ class ExecutorSpec(BaseModel):
     id: NonEmptyString
     capability: NonEmptyString
     worker_id: NonEmptyString
-    model: NonEmptyString
+    model_id: NonEmptyString = Field(validation_alias=AliasChoices("model_id", "model"))
     device: NonEmptyString
     site: NonEmptyString

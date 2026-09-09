@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 from uuid import uuid4
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.execution.executor_registry import ExecutorRegistry
@@ -22,6 +22,7 @@ from infra_mas.planner.context import ArtifactCatalog, PlannerContext
 from infra_mas.planner.coordinator import Coordinator
 from infra_mas.planner.model_factory import PlannerModelConfig, create_planner_model
 from infra_mas.runtime.agent_registry import AgentRegistry
+from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
 from infra_mas.scheduler.base import Scheduler
 from infra_mas.scheduler.fixed import FixedScheduler
@@ -59,7 +60,9 @@ class BlindExperimentConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    agents_config: Path = Path("agents.yaml")
+    planner_mode: Literal["static_agents", "dynamic_models", "hybrid"] = "static_agents"
+    agents_config: Path | None = Path("agents.yaml")
+    models_config: Path = Path("models.yaml")
     executors_config: Path = Path("executors.yaml")
     runs_root: Path = Path("../runs")
     temporary_root: Path = Path("../.runtime")
@@ -68,6 +71,13 @@ class BlindExperimentConfig(BaseModel):
     max_turns: Annotated[int, Field(gt=0)] = 10
     scheduler: SchedulerConfig
     planner: PlannerModelConfig
+
+    @model_validator(mode="after")
+    def validate_agent_config_for_mode(self) -> BlindExperimentConfig:
+        """Require presets only in modes that expose them to the Planner."""
+        if self.planner_mode in {"static_agents", "hybrid"} and self.agents_config is None:
+            raise ValueError(f"planner_mode {self.planner_mode!r} requires agents_config")
+        return self
 
     @classmethod
     def from_yaml(cls, path: Path) -> BlindExperimentConfig:
@@ -134,20 +144,39 @@ async def preflight_workers(
 def build_blind_scheduler(
     config: SchedulerConfig,
     registry: ExecutorRegistry,
-    agents: AgentRegistry,
+    models: ModelRegistry,
+    agents: AgentRegistry | None = None,
 ) -> Scheduler:
-    """Build and validate a resource-blind scheduler."""
-    capabilities = {agent.capability for agent in agents.list()}
+    """Build and validate logical-model-to-replica scheduling."""
+    model_ids = {model.model_id for model in models.list()}
+    executor_model_ids = {executor.model_id for executor in registry.list()}
+    unknown = sorted(executor_model_ids - model_ids)
+    if unknown:
+        raise ValueError(f"executors reference unknown logical models: {unknown}")
     unavailable = sorted(
-        capability for capability in capabilities if not registry.candidates(capability)
+        model_id for model_id in model_ids if not registry.model_candidates(model_id)
     )
     if unavailable:
-        raise ValueError(f"no executors configured for agent capabilities: {unavailable}")
+        raise ValueError(f"no executor replicas configured for logical models: {unavailable}")
+
+    if agents is not None:
+        unknown_presets = sorted(
+            {
+                agent.model_id
+                for agent in agents.list()
+                if agent.model_id is not None and agent.model_id not in model_ids
+            }
+        )
+        if unknown_presets:
+            raise ValueError(f"agent presets reference unknown models: {unknown_presets}")
 
     if isinstance(config, FixedSchedulerConfig):
-        missing = sorted(capabilities - config.assignments.keys())
+        assigned_models = {
+            registry.get(executor_id).model_id for executor_id in config.assignments.values()
+        }
+        missing = sorted(model_ids - assigned_models)
         if missing:
-            raise ValueError(f"fixed scheduler has no assignments for capabilities: {missing}")
+            raise ValueError(f"fixed scheduler has no assignments for models: {missing}")
         return FixedScheduler(registry, config.assignments)
     return RoundRobinScheduler(registry)
 
@@ -192,9 +221,14 @@ async def check_blind_experiment(config_path: Path) -> PreflightResult:
     config_path = config_path.resolve()
     config = BlindExperimentConfig.from_yaml(config_path)
     directory = config_path.parent
-    agents = AgentRegistry.from_yaml(resolve_config_path(config.agents_config, directory))
+    agents = (
+        AgentRegistry.from_yaml(resolve_config_path(config.agents_config, directory))
+        if config.agents_config is not None
+        else None
+    )
+    models = ModelRegistry.from_yaml(resolve_config_path(config.models_config, directory))
     registry = ExecutorRegistry.from_yaml(resolve_config_path(config.executors_config, directory))
-    build_blind_scheduler(config.scheduler, registry, agents)
+    build_blind_scheduler(config.scheduler, registry, models, agents)
     if config.input_worker not in registry.worker_endpoints():
         raise ValueError(f"unknown input_worker: {config.input_worker!r}")
     clients = create_worker_clients(registry, config.worker_timeout_seconds)
@@ -218,13 +252,19 @@ async def run_blind_experiment(
     config_path = config_path.resolve()
     config = BlindExperimentConfig.from_yaml(config_path)
     directory = config_path.parent
-    agents_path = resolve_config_path(config.agents_config, directory)
+    agents_path = (
+        resolve_config_path(config.agents_config, directory)
+        if config.agents_config is not None
+        else None
+    )
+    models_path = resolve_config_path(config.models_config, directory)
     executors_path = resolve_config_path(config.executors_config, directory)
     runs_root = resolve_config_path(config.runs_root, directory)
     temporary_root = resolve_config_path(config.temporary_root, directory)
-    agents = AgentRegistry.from_yaml(agents_path)
+    agents = AgentRegistry.from_yaml(agents_path) if agents_path is not None else None
+    models = ModelRegistry.from_yaml(models_path)
     registry = ExecutorRegistry.from_yaml(executors_path)
-    scheduler = build_blind_scheduler(config.scheduler, registry, agents)
+    scheduler = build_blind_scheduler(config.scheduler, registry, models, agents)
     if config.input_worker not in registry.worker_endpoints():
         raise ValueError(f"unknown input_worker: {config.input_worker!r}")
 
@@ -235,10 +275,12 @@ async def run_blind_experiment(
     effective_config: dict[str, object] = {
         "run_id": effective_run_id,
         "mode": "resource_blind",
+        "planner_mode": config.planner_mode,
         "resource_aware": False,
         "task": task,
         "experiment_config": str(config_path),
-        "agents_config": str(agents_path),
+        "agents_config": str(agents_path) if agents_path is not None else None,
+        "models_config": str(models_path),
         "executors_config": str(executors_path),
         "runs_root": str(runs_root),
         "temporary_root": str(temporary_root),
@@ -246,7 +288,12 @@ async def run_blind_experiment(
         "worker_timeout_seconds": config.worker_timeout_seconds,
         "max_turns": config.max_turns,
         "input_paths": [str(path.resolve()) for path in inputs],
-        "agents": [agent.model_dump(mode="json") for agent in agents.list()],
+        "agents": (
+            [agent.model_dump(mode="json") for agent in agents.list()]
+            if agents is not None
+            else []
+        ),
+        "models": [model.model_dump(mode="json") for model in models.list()],
         "executors": [executor.model_dump(mode="json") for executor in registry.list()],
         "worker_endpoints": registry.worker_endpoints(),
         "scheduler": config.scheduler.model_dump(mode="json"),
@@ -269,11 +316,19 @@ async def run_blind_experiment(
             manager,
             trace,
             request_id_factory=lambda: f"{effective_run_id}/request-{uuid4().hex}",
+            model_registry=models,
         )
         catalog = ArtifactCatalog(clients, temporary_root / "inspection", trace)
         catalog.register_many(initial_artifacts)
         planner_model, planner_client = create_planner_model(config.planner)
-        context = PlannerContext(runtime, agents, catalog, trace)
+        context = PlannerContext(
+            runtime,
+            agents,
+            catalog,
+            trace,
+            model_registry=models,
+            planner_mode=config.planner_mode,
+        )
         answer = await Coordinator(
             context,
             model=planner_model,

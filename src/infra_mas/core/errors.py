@@ -9,6 +9,10 @@ class AgentNotFoundError(InfraMasError):
     """Raised when a semantic agent name is not registered."""
 
 
+class ModelNotFoundError(InfraMasError):
+    """Raised when a logical model ID is not registered."""
+
+
 class ExecutorNotFoundError(InfraMasError):
     """Raised when a physical executor ID is not registered."""
 

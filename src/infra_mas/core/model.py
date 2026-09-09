@@ -1,4 +1,4 @@
-"""Model-level execution schemas."""
+"""Logical model and model-level execution schemas."""
 
 from typing import Annotated
 
@@ -15,6 +15,18 @@ class ModelRequest(BaseModel):
     instructions: NonEmptyString
     task: NonEmptyString
     input_paths: list[NonEmptyString]
+
+
+class ModelSpec(BaseModel):
+    """Describe a deployed logical model without physical replica details."""
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    model_id: NonEmptyString
+    description: NonEmptyString
+    input_modalities: Annotated[list[NonEmptyString], Field(min_length=1)]
+    output_modalities: Annotated[list[NonEmptyString], Field(min_length=1)]
+    context_window: Annotated[int, Field(gt=0)]
 
 
 class ModelResult(BaseModel):

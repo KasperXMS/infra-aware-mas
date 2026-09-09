@@ -19,6 +19,7 @@ _RESERVED_FIELDS: Final = frozenset(
 _ACTION_EVENT_TYPES: Final = frozenset(
     {
         "planner.delegate",
+        "planner.spawn_agent",
         "planner.finish",
         "planner.inspect_artifact",
         "planner.llm.start",

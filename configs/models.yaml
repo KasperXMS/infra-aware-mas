@@ -1,0 +1,16 @@
+models:
+  local-vlm:
+    description: Vision-language model suited to image understanding and concise text output.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 32768
+  remote-vlm:
+    description: Larger vision-language model for detailed multimodal analysis.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 65536
+  remote-llm:
+    description: General language model for reasoning, synthesis, and summarization.
+    input_modalities: [text]
+    output_modalities: [text]
+    context_window: 131072

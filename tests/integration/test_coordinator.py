@@ -30,7 +30,7 @@ from openai.types.responses.response_prompt_param import ResponsePromptParam
 
 from infra_mas.core.agent import AgentSpec
 from infra_mas.core.executor import ExecutorSpec
-from infra_mas.core.model import ModelRequest, ModelResult
+from infra_mas.core.model import ModelRequest, ModelResult, ModelSpec
 from infra_mas.core.trace import TraceEvent
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.execution.manager import ExecutionManager
@@ -39,6 +39,7 @@ from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.planner.context import ArtifactCatalog, PlannerContext
 from infra_mas.planner.coordinator import Coordinator
 from infra_mas.runtime.agent_registry import AgentRegistry
+from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
 from infra_mas.scheduler.fixed import FixedScheduler
 from infra_mas.tracing.recorder import TraceRecorder
@@ -57,6 +58,17 @@ class EvidenceReasonerBackend:
             encoding="utf-8",
         )
         return ModelResult(output_text=f"answer from {evidence}", latency_ms=5)
+
+
+class CapturingBackend:
+    """Capture the dynamic role's worker-local request."""
+
+    def __init__(self) -> None:
+        self.requests: list[ModelRequest] = []
+
+    async def infer(self, request: ModelRequest) -> ModelResult:
+        self.requests.append(request)
+        return ModelResult(output_text="dynamic finding", latency_ms=2)
 
 
 class ScriptedCoordinatorModel(Model):
@@ -186,6 +198,45 @@ class ScriptedCoordinatorModel(Model):
         ]
 
 
+class DynamicCoordinatorModel(ScriptedCoordinatorModel):
+    """Create a novel role that is absent from every static AgentRegistry."""
+
+    @staticmethod
+    def _output_for_turn(turn: int) -> list[TResponseOutputItem]:
+        if turn == 1:
+            return [
+                ResponseFunctionToolCall(
+                    arguments=json.dumps(
+                        {
+                            "model_id": "general-llm",
+                            "role": "counterexample_hunter",
+                            "instructions": "Find decisive counterexamples and state uncertainty.",
+                            "task": "Stress-test the proposed claim.",
+                            "input_artifact_ids": [],
+                        }
+                    ),
+                    call_id="call-spawn-dynamic",
+                    name="spawn_agent",
+                    type="function_call",
+                )
+            ]
+        return [
+            ResponseOutputMessage(
+                id="message-dynamic-final",
+                content=[
+                    ResponseOutputText(
+                        annotations=[],
+                        text="dynamic finding",
+                        type="output_text",
+                    )
+                ],
+                role="assistant",
+                status="completed",
+                type="message",
+            )
+        ]
+
+
 async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> None:
     store_a = ArtifactStore(tmp_path / "worker-a", "worker-a")
     worker_a = WorkerService(
@@ -245,7 +296,7 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
                 id="worker-a-vision",
                 capability="visual_understanding",
                 worker_id="worker-a",
-                model="mock-vlm",
+                model_id="mock-vlm",
                 device="edge-device",
                 site="edge",
             ),
@@ -253,7 +304,7 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
                 id="worker-b-reasoner",
                 capability="reasoning",
                 worker_id="worker-b",
-                model="mock-llm",
+                model_id="mock-llm",
                 device="remote-device",
                 site="remote",
             ),
@@ -264,6 +315,24 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
                 "worker-a": "http://worker-a.test",
                 "worker-b": "http://worker-b.test",
             },
+        )
+        models = ModelRegistry(
+            [
+                ModelSpec(
+                    model_id="mock-vlm",
+                    description="Visual evidence model.",
+                    input_modalities=["text", "image"],
+                    output_modalities=["text"],
+                    context_window=8192,
+                ),
+                ModelSpec(
+                    model_id="mock-llm",
+                    description="Reasoning model.",
+                    input_modalities=["text"],
+                    output_modalities=["text"],
+                    context_window=8192,
+                ),
+            ]
         )
         trace = TraceRecorder(tmp_path / "runs", "run-001")
         transfer = TransferManager(clients, trace)
@@ -281,9 +350,10 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
             manager,
             trace,
             request_id_factory=lambda: next(request_ids),
+            model_registry=models,
         )
         catalog = ArtifactCatalog(clients, tmp_path / "inspection", trace)
-        context = PlannerContext(runtime, agents, catalog, trace)
+        context = PlannerContext(runtime, agents, catalog, trace, model_registry=models)
         model = ScriptedCoordinatorModel()
 
         await trace.start({"test": "coordinator"})
@@ -326,3 +396,95 @@ async def test_coordinator_performs_two_blind_delegations(tmp_path: Path) -> Non
     assert planner_finish.model_extra["turn_count"] == 4
     assert events[-2].event_type == "planner.finish"
     assert events[-1].event_type == "run.end"
+
+
+async def test_dynamic_planner_invokes_unregistered_role(tmp_path: Path) -> None:
+    backend = CapturingBackend()
+    worker = WorkerService(
+        "worker-a",
+        ArtifactStore(tmp_path / "worker-a", "worker-a"),
+        [WorkerExecutor("worker-a-llm", "reasoning", backend)],
+        artifact_id_factory=lambda request: f"run-dynamic/output-{request.request_id}",
+    )
+    executors = ExecutorRegistry(
+        [
+            ExecutorSpec(
+                id="worker-a-llm",
+                capability="reasoning",
+                worker_id="worker-a",
+                model_id="general-llm",
+                device="hidden-device",
+                site="hidden-site",
+            )
+        ],
+        {"worker-a": "http://worker-a.test"},
+    )
+    models = ModelRegistry(
+        [
+            ModelSpec(
+                model_id="general-llm",
+                description="General reasoning and critique model.",
+                input_modalities=["text"],
+                output_modalities=["text"],
+                context_window=16384,
+            )
+        ]
+    )
+    trace = TraceRecorder(tmp_path / "runs", "run-dynamic")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app(worker)),
+        base_url="http://worker-a.test",
+    ) as http_client:
+        clients = {"worker-a": WorkerClient(client=http_client)}
+        runtime = AgentRuntime(
+            None,
+            FixedScheduler(executors, {"general-llm": "worker-a-llm"}),
+            ExecutionManager(clients, TransferManager(clients, trace), trace),
+            trace,
+            request_id_factory=lambda: "dynamic-request",
+            model_registry=models,
+        )
+        catalog = ArtifactCatalog(clients, tmp_path / "inspection-dynamic", trace)
+        context = PlannerContext(
+            runtime,
+            None,
+            catalog,
+            trace,
+            model_registry=models,
+            planner_mode="dynamic_models",
+        )
+        planner_model = DynamicCoordinatorModel()
+
+        await trace.start({"planner_mode": "dynamic_models"})
+        answer = await Coordinator(context, model=planner_model).run("Challenge this claim.")
+        await trace.end({"success": True, "answer": answer})
+
+    assert answer == "dynamic finding"
+    assert len(backend.requests) == 1
+    assert backend.requests[0].instructions == (
+        "Find decisive counterexamples and state uncertainty."
+    )
+    assert backend.requests[0].task == "Stress-test the proposed claim."
+    assert planner_model.instructions_seen is not None
+    assert "general-llm" in planner_model.instructions_seen
+    assert "counterexample_hunter" not in planner_model.instructions_seen
+    assert "worker-a" not in planner_model.instructions_seen
+    assert "hidden-device" not in planner_model.instructions_seen
+
+    events = [
+        TraceEvent.model_validate_json(line)
+        for line in trace.path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event.event_type for event in events].count("planner.spawn_agent") == 1
+    spawn_event = next(event for event in events if event.event_type == "planner.spawn_agent")
+    assert spawn_event.model_extra is not None
+    assert spawn_event.model_extra["instructions"] == (
+        "Find decisive counterexamples and state uncertainty."
+    )
+    execution_request = next(
+        event for event in events if event.event_type == "execution.request"
+    )
+    assert execution_request.model_extra is not None
+    assert execution_request.model_extra["agent"] == "counterexample_hunter"
+    assert execution_request.model_extra["model_id"] == "general-llm"

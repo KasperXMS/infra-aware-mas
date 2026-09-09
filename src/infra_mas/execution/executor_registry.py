@@ -6,7 +6,7 @@ from typing import Annotated
 
 import httpx
 import yaml
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints
 
 from infra_mas.core.errors import ExecutorNotFoundError, WorkerUnavailableError
 from infra_mas.core.executor import ExecutorSpec
@@ -26,7 +26,7 @@ class _ExecutorEntry(BaseModel):
 
     worker_id: NonEmptyString
     capability: NonEmptyString
-    model: NonEmptyString
+    model_id: NonEmptyString = Field(validation_alias=AliasChoices("model_id", "model"))
     device: NonEmptyString
     site: NonEmptyString
 
@@ -83,7 +83,7 @@ class ExecutorRegistry:
                     id=executor_id,
                     capability=entry.capability,
                     worker_id=entry.worker_id,
-                    model=entry.model,
+                    model_id=entry.model_id,
                     device=entry.device,
                     site=entry.site,
                 )
@@ -106,6 +106,14 @@ class ExecutorRegistry:
             executor.model_copy(deep=True)
             for executor in self._executors.values()
             if executor.capability == capability
+        ]
+
+    def model_candidates(self, model_id: str) -> list[ExecutorSpec]:
+        """Return every physical replica serving one logical model."""
+        return [
+            executor.model_copy(deep=True)
+            for executor in self._executors.values()
+            if executor.model_id == model_id
         ]
 
     def list(self) -> list[ExecutorSpec]:

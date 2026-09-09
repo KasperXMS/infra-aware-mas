@@ -14,7 +14,7 @@ def executor(executor_id: str = "worker-1-llm") -> ExecutorSpec:
         id=executor_id,
         capability="reasoning",
         worker_id="worker-1",
-        model="mock",
+        model_id="mock",
         device="cpu",
         site="local",
     )
@@ -25,6 +25,7 @@ def test_registry_lookup_filter_and_endpoint_resolution() -> None:
 
     assert registry.get("worker-1-llm").worker_id == "worker-1"
     assert [item.id for item in registry.candidates("reasoning")] == ["worker-1-llm"]
+    assert [item.id for item in registry.model_candidates("mock")] == ["worker-1-llm"]
     assert registry.executor_endpoint("worker-1-llm") == "http://worker-1.test"
 
 

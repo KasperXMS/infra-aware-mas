@@ -10,24 +10,24 @@ executors:
   orin-1-vlm:
     worker_id: orin-1
     capability: visual_understanding
-    model: local-vlm
+    model_id: local-vlm
     device: agx-orin
     site: edge
   gpu-1-vlm:
     worker_id: gpu-1
     capability: visual_understanding
-    model: remote-vlm
+    model_id: remote-vlm
     device: rtx4090
     site: remote
   gpu-1-llm:
     worker_id: gpu-1
     capability: reasoning
-    model: remote-llm
+    model_id: remote-llm
     device: rtx4090
     site: remote
   gpu-1-summarizer:
     worker_id: gpu-1
     capability: summarization
-    model: remote-llm
+    model_id: remote-llm
     device: rtx4090
     site: remote

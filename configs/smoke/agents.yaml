@@ -1,7 +1,9 @@
 agents:
   vision_extractor:
     capability: visual_understanding
+    model_id: mock-vlm
     instructions: Extract visual evidence relevant to the assigned task.
   reasoner:
     capability: reasoning
+    model_id: mock-llm
     instructions: Reason over supplied evidence and solve the assigned task.

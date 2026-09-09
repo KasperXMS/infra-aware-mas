@@ -15,3 +15,4 @@ class AgentSpec(BaseModel):
     name: NonEmptyString
     capability: NonEmptyString
     instructions: NonEmptyString
+    model_id: NonEmptyString | None = None

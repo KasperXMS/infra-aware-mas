@@ -1,4 +1,6 @@
+planner_mode: hybrid
 agents_config: agents.yaml
+models_config: models.yaml
 executors_config: executors.yaml
 runs_root: ../../runs
 temporary_root: ../../.runtime
@@ -8,8 +10,8 @@ max_turns: 10
 scheduler:
   type: fixed
   assignments:
-    visual_understanding: worker-a-vision
-    reasoning: worker-b-reasoner
+    mock-vlm: worker-a-vision
+    mock-llm: worker-b-reasoner
 planner:
   model: unused-during-preflight
   api: chat_completions

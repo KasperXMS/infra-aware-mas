@@ -50,16 +50,25 @@ prototype deliberately has no authentication layer.
 
 On the Controller, edit `configs/executors.yaml` and replace `orin-host` and `gpu-host` with
 resolvable hostnames or LAN IP addresses. The Executor IDs must exactly match those exposed by the
-two Worker YAML files.
+two Worker YAML files. `configs/models.yaml` is the logical model directory exposed to the Planner;
+it contains descriptions, modalities, and context windows but no host, device, endpoint, or replica
+information.
 
 Then edit `configs/blind.yaml`:
 
-- choose the fixed resource-blind assignments;
+- choose `planner_mode`: `static_agents`, `dynamic_models`, or `hybrid`;
+- map each logical `model_id` to a physical executor for the fixed resource-blind scheduler;
 - set the Coordinator model;
 - use `api: responses` for the official OpenAI API, or `api: chat_completions` plus `base_url` for a
   compatible server;
 - set `api_key_env` to the credential environment variable, or `null` for an unauthenticated local
   endpoint.
+
+`static_agents` exposes only the presets in `agents.yaml`. `dynamic_models` makes `agents_config`
+optional and lets the Planner create a role, system instructions, task, and artifact inputs for each
+logical model invocation. `hybrid` exposes both mechanisms. Presets are compatibility conveniences:
+they are converted to the same `InvocationSpec` used by dynamic roles before scheduling and
+execution.
 
 For the official API, set the configured key in the environment. For example in PowerShell:
 
@@ -117,5 +126,7 @@ The OpenAI-compatible Worker backend accepts UTF-8 text/JSON/XML/YAML and common
 Images are encoded as Chat Completions `image_url` data URLs by the Worker. Unsupported binary
 formats fail explicitly instead of being silently inserted into the control plane.
 
-The architecture keeps semantic agents separate from physical executors, uses artifact references
-for data movement, and confines OpenAI Agents SDK integration to the planner package.
+The Planner is not given a predefined DAG or execution topology. It can adaptively invoke logical
+models based on the task and current artifacts; the scheduler independently maps each logical model
+to a physical executor replica. Artifact references remain the only data-movement inputs, and
+OpenAI Agents SDK integration stays confined to the planner package.

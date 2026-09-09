@@ -20,6 +20,7 @@ class _AgentEntry(BaseModel):
 
     capability: NonEmptyString
     instructions: NonEmptyString
+    model_id: NonEmptyString | None = None
 
 
 class _AgentConfig(BaseModel):
@@ -48,6 +49,7 @@ class AgentRegistry:
                 name=name,
                 capability=entry.capability,
                 instructions=entry.instructions,
+                model_id=entry.model_id,
             )
             for name, entry in config.agents.items()
         )

@@ -1,0 +1,11 @@
+models:
+  mock-vlm:
+    description: Deterministic mock model accepting text and images.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 8192
+  mock-llm:
+    description: Deterministic mock language model for reasoning tests.
+    input_modalities: [text]
+    output_modalities: [text]
+    context_window: 8192

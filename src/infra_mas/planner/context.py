@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
+from typing import Literal
 from uuid import uuid4
 
 from infra_mas.core.artifact import ArtifactRef
@@ -14,6 +15,7 @@ from infra_mas.core.errors import ArtifactNotFoundError
 from infra_mas.core.trace import TraceSink
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.runtime.agent_registry import AgentRegistry
+from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
 from infra_mas.tracing.recorder import TraceRecorder
 
@@ -26,6 +28,8 @@ _TEXT_ARTIFACT_TYPES = frozenset(
         "application/yaml",
     }
 )
+
+PlannerMode = Literal["static_agents", "dynamic_models", "hybrid"]
 
 
 class ArtifactCatalog:
@@ -172,13 +176,21 @@ class PlannerContext:
     """Provide local dependencies to Coordinator function tools."""
 
     runtime: AgentRuntime
-    agent_registry: AgentRegistry
+    agent_registry: AgentRegistry | None
     artifact_catalog: ArtifactCatalog
     trace: TraceRecorder
+    model_registry: ModelRegistry | None = None
+    planner_mode: PlannerMode = "static_agents"
     resource_provider: object | None = None
     resource_aware: bool = False
     _action_counter: int = field(default=0, init=False, repr=False)
     _action_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.model_registry is None:
+            raise ValueError("PlannerContext requires a ModelRegistry")
+        if self.planner_mode in {"static_agents", "hybrid"} and self.agent_registry is None:
+            raise ValueError(f"planner mode {self.planner_mode!r} requires an AgentRegistry")
 
     @property
     def coordinator_action_id(self) -> str:

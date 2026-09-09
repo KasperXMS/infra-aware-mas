@@ -79,6 +79,7 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
             ExecutionRequest(
                 request_id="request-vision",
                 agent="vision_extractor",
+                model_id="mock-vlm",
                 capability="visual_understanding",
                 instructions="Extract visual evidence.",
                 task="Extract relevant evidence.",
@@ -96,6 +97,7 @@ async def test_artifact_moves_from_worker_a_to_worker_b(tmp_path: Path) -> None:
             ExecutionRequest(
                 request_id="request-reasoning",
                 agent="reasoner",
+                model_id="mock-llm",
                 capability="reasoning",
                 instructions="Reason over evidence.",
                 task="Answer from the evidence.",
