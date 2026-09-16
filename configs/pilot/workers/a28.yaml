@@ -1,0 +1,15 @@
+worker_id: a28
+host: 0.0.0.0
+port: 9001
+artifact_root: ../../../data/pilot/a28/artifacts
+executors:
+  - id: a28-vlm
+    capability: visual_understanding
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3-vl-edge-8k:latest
+      api_key_env: null
+      timeout_seconds: 600
+      max_tokens: 512
+      temperature: 0

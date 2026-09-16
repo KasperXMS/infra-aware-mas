@@ -11,7 +11,7 @@ def build_blind_coordinator_instructions(
     planner_mode: PlannerMode,
     planner_harness: PlannerHarness = "minimal",
 ) -> str:
-    """Render logical models and optional presets, never physical infrastructure."""
+    """Render common instructions used by both infrastructure visibility modes."""
     model_lines = "\n".join(
         "- "
         f"{model.model_id}: {model.description}; "
@@ -54,9 +54,11 @@ models, how often, and in what order. There is no predefined DAG, topology, call
 Use inspect_artifact when a bounded textual artifact needs examination. Stop when the available
 evidence is sufficient and return the final user answer.
 
-Never choose or mention hosts, devices, executors, replicas, endpoints, queue state, network state,
-or resource placement. Physical execution is exclusively the scheduler's responsibility. Pass
-artifacts by ID and never place raw binary data in tool arguments or the final answer."""
+Never select, request, or bind a physical executor: physical binding is exclusively the scheduler's
+responsibility. If the user input includes infrastructure context, treat it only as raw facts
+that may inform semantic decomposition, logical-model invocations, and artifact grouping. The
+context is not a workflow recommendation. Pass artifacts by ID and never place raw binary data in
+tool arguments or the final answer."""
     )
     if planner_harness == "efficient":
         sections.append(

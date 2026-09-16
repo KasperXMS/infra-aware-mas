@@ -70,3 +70,22 @@ executors:
     registry = ExecutorRegistry.from_yaml(path)
 
     assert registry.get("worker-1-llm") == executor()
+
+
+def test_filtered_registry_preserves_ineligible_worker_sites() -> None:
+    second = executor("worker-2-llm").model_copy(
+        update={"worker_id": "worker-2", "site": "remote"}
+    )
+    registry = ExecutorRegistry(
+        [executor(), second],
+        {
+            "worker-1": "http://worker-1.test",
+            "worker-2": "http://worker-2.test",
+        },
+        {"worker-1": "local", "worker-2": "remote"},
+    )
+
+    filtered = registry.filtered(["worker-1-llm"])
+
+    assert [item.id for item in filtered.list()] == ["worker-1-llm"]
+    assert filtered.worker_sites() == {"worker-1": "local", "worker-2": "remote"}

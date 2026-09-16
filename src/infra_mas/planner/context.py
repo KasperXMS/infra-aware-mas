@@ -15,6 +15,7 @@ from infra_mas.core.errors import ArtifactNotFoundError
 from infra_mas.core.trace import TraceSink
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.planner.ledger import PlanningLedger
+from infra_mas.resources.provider import ResourceProvider
 from infra_mas.runtime.agent_registry import AgentRegistry
 from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
@@ -32,6 +33,7 @@ _TEXT_ARTIFACT_TYPES = frozenset(
 
 PlannerMode = Literal["static_agents", "dynamic_models", "hybrid"]
 PlannerHarness = Literal["minimal", "stateful", "efficient"]
+InfrastructureVisibility = Literal["none", "static", "snapshot"]
 
 
 class ArtifactCatalog:
@@ -185,8 +187,8 @@ class PlannerContext:
     planner_mode: PlannerMode = "static_agents"
     planner_harness: PlannerHarness = "minimal"
     planning_ledger: PlanningLedger | None = None
-    resource_provider: object | None = None
-    resource_aware: bool = False
+    resource_provider: ResourceProvider | None = None
+    infrastructure_visibility: InfrastructureVisibility = "none"
     _action_counter: int = field(default=0, init=False, repr=False)
     _action_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
@@ -199,6 +201,15 @@ class PlannerContext:
             self.planning_ledger = PlanningLedger(
                 artifact.id for artifact in self.artifact_catalog.list()
             )
+        if self.infrastructure_visibility != "none" and self.resource_provider is None:
+            raise ValueError(
+                f"{self.infrastructure_visibility} visibility requires a ResourceProvider"
+            )
+
+    @property
+    def resource_aware(self) -> bool:
+        """Retain the historical flag as a derived compatibility view."""
+        return self.infrastructure_visibility != "none"
 
     @property
     def coordinator_action_id(self) -> str:

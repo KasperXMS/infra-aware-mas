@@ -4,11 +4,15 @@ import asyncio
 
 import pytest
 
+from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import NoExecutorAvailableError
 from infra_mas.core.execution import InvocationSpec
 from infra_mas.core.executor import ExecutorSpec
+from infra_mas.core.resource import NetworkLink
 from infra_mas.execution.executor_registry import ExecutorRegistry
+from infra_mas.resources.provider import StaticResourceProvider
 from infra_mas.scheduler.fixed import FixedScheduler
+from infra_mas.scheduler.resource_aware import ResourceAwareScheduler
 from infra_mas.scheduler.round_robin import RoundRobinScheduler
 
 
@@ -97,3 +101,67 @@ async def test_round_robin_rotates_only_replicas_of_requested_model() -> None:
     selected = [await scheduler.select(invocation("small")) for _ in range(3)]
 
     assert [item.id for item in selected] == ["small-a", "small-b", "small-a"]
+
+
+async def test_locality_scheduler_selects_replica_with_least_required_transfer() -> None:
+    local_registry = ExecutorRegistry(
+        [
+            ExecutorSpec(
+                id="executor-a",
+                capability="reasoning",
+                worker_id="worker-a",
+                model_id="mock",
+                device="cpu",
+                site="site-a",
+            ),
+            ExecutorSpec(
+                id="executor-b",
+                capability="reasoning",
+                worker_id="worker-b",
+                model_id="mock",
+                device="cpu",
+                site="site-b",
+            ),
+        ],
+        {"worker-a": "http://worker-a.test", "worker-b": "http://worker-b.test"},
+    )
+    provider = StaticResourceProvider(
+        local_registry,
+        network_links=[
+            NetworkLink(
+                source_site="site-a",
+                target_site="site-b",
+                bandwidth_mbps=100,
+                rtt_ms=5,
+            )
+        ],
+    )
+    scheduler = ResourceAwareScheduler(local_registry, provider)
+    request = invocation().model_copy(
+        update={
+            "input_artifacts": [
+                ArtifactRef(
+                    id="run/image.jpg",
+                    artifact_type="image/jpeg",
+                    size_bytes=100,
+                    locations=["worker-b"],
+                )
+            ]
+        }
+    )
+
+    selected = await scheduler.select(request)
+
+    assert selected.id == "executor-b"
+
+
+async def test_locality_scheduler_ties_by_executor_id() -> None:
+    local_registry = registry()
+    scheduler = ResourceAwareScheduler(
+        local_registry,
+        StaticResourceProvider(local_registry),
+    )
+
+    selected = await scheduler.select(invocation())
+
+    assert selected.id == "executor-a"

@@ -2,6 +2,7 @@
 
 from infra_mas.scheduler.base import Scheduler
 from infra_mas.scheduler.fixed import FixedScheduler
+from infra_mas.scheduler.resource_aware import ResourceAwareScheduler
 from infra_mas.scheduler.round_robin import RoundRobinScheduler
 
-__all__ = ["FixedScheduler", "RoundRobinScheduler", "Scheduler"]
+__all__ = ["FixedScheduler", "ResourceAwareScheduler", "RoundRobinScheduler", "Scheduler"]

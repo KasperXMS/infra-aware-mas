@@ -7,6 +7,7 @@ import mimetypes
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from time import perf_counter
 from typing import Annotated, Literal
 from uuid import uuid4
 
@@ -14,18 +15,25 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from infra_mas.core.artifact import ArtifactRef
+from infra_mas.core.resource import NetworkLink
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.execution.manager import ExecutionManager
 from infra_mas.execution.transfer import TransferManager
 from infra_mas.execution.worker_client import WorkerClient
-from infra_mas.planner.context import ArtifactCatalog, PlannerContext
+from infra_mas.planner.context import (
+    ArtifactCatalog,
+    InfrastructureVisibility,
+    PlannerContext,
+)
 from infra_mas.planner.coordinator import Coordinator
 from infra_mas.planner.model_factory import PlannerModelConfig, create_planner_model
+from infra_mas.resources.provider import StaticResourceConfig, StaticResourceProvider
 from infra_mas.runtime.agent_registry import AgentRegistry
 from infra_mas.runtime.model_registry import ModelRegistry
 from infra_mas.runtime.runtime import AgentRuntime
 from infra_mas.scheduler.base import Scheduler
 from infra_mas.scheduler.fixed import FixedScheduler
+from infra_mas.scheduler.resource_aware import ResourceAwareScheduler
 from infra_mas.scheduler.round_robin import RoundRobinScheduler
 from infra_mas.tracing.recorder import TraceRecorder
 
@@ -49,8 +57,16 @@ class RoundRobinSchedulerConfig(BaseModel):
     type: Literal["round_robin"]
 
 
+class LocalityAwareSchedulerConfig(BaseModel):
+    """Configure deterministic input-locality scheduling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["locality_aware"]
+
+
 SchedulerConfig = Annotated[
-    FixedSchedulerConfig | RoundRobinSchedulerConfig,
+    FixedSchedulerConfig | RoundRobinSchedulerConfig | LocalityAwareSchedulerConfig,
     Field(discriminator="type"),
 ]
 
@@ -67,7 +83,10 @@ class BlindExperimentConfig(BaseModel):
     executors_config: Path = Path("executors.yaml")
     runs_root: Path = Path("../runs")
     temporary_root: Path = Path("../.runtime")
-    input_worker: NonEmptyString
+    resources_config: Path | None = None
+    infrastructure_visibility: InfrastructureVisibility = "none"
+    input_worker: NonEmptyString | None = None
+    input_workers: list[NonEmptyString] | None = None
     worker_timeout_seconds: Annotated[float, Field(gt=0)] = 300.0
     max_turns: Annotated[int, Field(gt=0)] = 10
     scheduler: SchedulerConfig
@@ -78,6 +97,15 @@ class BlindExperimentConfig(BaseModel):
         """Require presets only in modes that expose them to the Planner."""
         if self.planner_mode in {"static_agents", "hybrid"} and self.agents_config is None:
             raise ValueError(f"planner_mode {self.planner_mode!r} requires agents_config")
+        if self.input_worker is not None and self.input_workers is not None:
+            raise ValueError("configure input_worker or input_workers, not both")
+        if isinstance(self.scheduler, LocalityAwareSchedulerConfig):
+            if self.resources_config is None:
+                raise ValueError("locality_aware scheduler requires resources_config")
+        if self.infrastructure_visibility != "none" and self.resources_config is None:
+            raise ValueError(
+                f"{self.infrastructure_visibility} visibility requires resources_config"
+            )
         return self
 
     @classmethod
@@ -142,11 +170,12 @@ async def preflight_workers(
     return PreflightResult(workers=dict(checked))
 
 
-def build_blind_scheduler(
+def build_scheduler(
     config: SchedulerConfig,
     registry: ExecutorRegistry,
     models: ModelRegistry,
     agents: AgentRegistry | None = None,
+    resource_provider: StaticResourceProvider | None = None,
 ) -> Scheduler:
     """Build and validate logical-model-to-replica scheduling."""
     model_ids = {model.model_id for model in models.list()}
@@ -179,7 +208,21 @@ def build_blind_scheduler(
         if missing:
             raise ValueError(f"fixed scheduler has no assignments for models: {missing}")
         return FixedScheduler(registry, config.assignments)
+    if isinstance(config, LocalityAwareSchedulerConfig):
+        if resource_provider is None:
+            raise ValueError("locality_aware scheduler requires a ResourceProvider")
+        return ResourceAwareScheduler(registry, resource_provider)
     return RoundRobinScheduler(registry)
+
+
+def build_blind_scheduler(
+    config: SchedulerConfig,
+    registry: ExecutorRegistry,
+    models: ModelRegistry,
+    agents: AgentRegistry | None = None,
+) -> Scheduler:
+    """Backward-compatible builder for historical blind configurations."""
+    return build_scheduler(config, registry, models, agents)
 
 
 async def upload_inputs(
@@ -212,6 +255,56 @@ async def upload_inputs(
     return uploaded
 
 
+async def upload_placed_inputs(
+    paths: Sequence[Path],
+    run_id: str,
+    worker_ids: Sequence[str],
+    clients: Mapping[str, WorkerClient],
+    *,
+    artifact_ids: Sequence[str] | None = None,
+) -> list[ArtifactRef]:
+    """Upload each input to its independently selected initial Worker."""
+    if len(paths) != len(worker_ids):
+        raise ValueError("input placement count must equal input artifact count")
+    if artifact_ids is not None and len(paths) != len(artifact_ids):
+        raise ValueError("artifact ID count must equal input artifact count")
+    if artifact_ids is not None and len(artifact_ids) != len(set(artifact_ids)):
+        raise ValueError("input artifact IDs must be unique")
+    unknown = sorted(set(worker_ids) - clients.keys())
+    if unknown:
+        raise ValueError(f"unknown input Workers: {unknown}")
+
+    uploaded: list[ArtifactRef] = []
+    for index, (raw_path, worker_id) in enumerate(zip(paths, worker_ids, strict=True), start=1):
+        path = raw_path.resolve()
+        if not await asyncio.to_thread(path.is_file):
+            raise FileNotFoundError(f"input artifact not found: {path}")
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", path.name).strip(".-") or "artifact"
+        binding_id = artifact_ids[index - 1] if artifact_ids is not None else safe_name
+        safe_binding_id = re.sub(r"[^A-Za-z0-9._-]+", "-", binding_id).strip(".-")
+        if not safe_binding_id:
+            raise ValueError(f"invalid artifact ID: {binding_id!r}")
+        if artifact_ids is not None and path.suffix and not safe_binding_id.lower().endswith(
+            path.suffix.lower()
+        ):
+            safe_binding_id += path.suffix
+        artifact_id = f"{run_id}/input-{index:03d}-{safe_binding_id}"
+        artifact_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        reference = ArtifactRef(
+            id=artifact_id,
+            artifact_type=artifact_type,
+            size_bytes=path.stat().st_size,
+            locations=["controller"],
+        )
+        result = await clients[worker_id].upload_artifact(reference, path)
+        if result.locations != [worker_id]:
+            raise ValueError(
+                f"input Worker returned unexpected artifact location: {result.locations}"
+            )
+        uploaded.append(result)
+    return uploaded
+
+
 async def close_worker_clients(clients: Mapping[str, WorkerClient]) -> None:
     """Close all controller-side HTTP connection pools."""
     await asyncio.gather(*(client.aclose() for client in clients.values()))
@@ -229,9 +322,23 @@ async def check_blind_experiment(config_path: Path) -> PreflightResult:
     )
     models = ModelRegistry.from_yaml(resolve_config_path(config.models_config, directory))
     registry = ExecutorRegistry.from_yaml(resolve_config_path(config.executors_config, directory))
-    build_blind_scheduler(config.scheduler, registry, models, agents)
-    if config.input_worker not in registry.worker_endpoints():
-        raise ValueError(f"unknown input_worker: {config.input_worker!r}")
+    resource_provider = (
+        StaticResourceProvider.from_yaml(
+            registry,
+            resolve_config_path(config.resources_config, directory),
+        )
+        if config.resources_config is not None
+        else None
+    )
+    build_scheduler(config.scheduler, registry, models, agents, resource_provider)
+    configured_workers = (
+        config.input_workers
+        if config.input_workers is not None
+        else ([config.input_worker] if config.input_worker is not None else [])
+    )
+    unknown_workers = sorted(set(configured_workers) - registry.worker_endpoints().keys())
+    if unknown_workers:
+        raise ValueError(f"unknown input Workers: {unknown_workers}")
     clients = create_worker_clients(registry, config.worker_timeout_seconds)
     try:
         return await preflight_workers(registry, clients)
@@ -245,6 +352,12 @@ async def run_blind_experiment(
     inputs: Sequence[Path],
     *,
     run_id: str | None = None,
+    input_workers: Sequence[str] | None = None,
+    artifact_ids: Sequence[str] | None = None,
+    infrastructure_visibility: InfrastructureVisibility | None = None,
+    network_links: Sequence[NetworkLink] | None = None,
+    eligible_executor_ids: Sequence[str] | None = None,
+    run_metadata: Mapping[str, object] | None = None,
 ) -> tuple[str, Path]:
     """Run one complete resource-blind MAS experiment against physical Workers."""
     if not task.strip():
@@ -260,37 +373,85 @@ async def run_blind_experiment(
     )
     models_path = resolve_config_path(config.models_config, directory)
     executors_path = resolve_config_path(config.executors_config, directory)
+    resources_path = (
+        resolve_config_path(config.resources_config, directory)
+        if config.resources_config is not None
+        else None
+    )
     runs_root = resolve_config_path(config.runs_root, directory)
     temporary_root = resolve_config_path(config.temporary_root, directory)
     agents = AgentRegistry.from_yaml(agents_path) if agents_path is not None else None
     models = ModelRegistry.from_yaml(models_path)
-    registry = ExecutorRegistry.from_yaml(executors_path)
-    scheduler = build_blind_scheduler(config.scheduler, registry, models, agents)
-    if config.input_worker not in registry.worker_endpoints():
-        raise ValueError(f"unknown input_worker: {config.input_worker!r}")
+    full_registry = ExecutorRegistry.from_yaml(executors_path)
+    registry = (
+        full_registry.filtered(eligible_executor_ids)
+        if eligible_executor_ids is not None
+        else full_registry
+    )
+    effective_visibility = infrastructure_visibility or config.infrastructure_visibility
+    resource_provider = None
+    if resources_path is not None:
+        resource_config = StaticResourceConfig.from_yaml(resources_path)
+        active_executor_ids = {executor.id for executor in registry.list()}
+        resource_provider = StaticResourceProvider(
+            registry,
+            service_times=[
+                item
+                for item in resource_config.service_times
+                if item.executor_id in active_executor_ids
+            ],
+            network_links=(
+                network_links
+                if network_links is not None
+                else resource_config.network_links
+            ),
+        )
+    if effective_visibility != "none" and resource_provider is None:
+        raise ValueError(f"{effective_visibility} visibility requires resources_config")
+    scheduler = build_scheduler(config.scheduler, registry, models, agents, resource_provider)
+    placements = list(input_workers) if input_workers is not None else config.input_workers
+    if placements is None and config.input_worker is not None:
+        placements = [config.input_worker] * len(inputs)
+    if placements is None:
+        if inputs:
+            raise ValueError("input placement is required for every input artifact")
+        placements = []
+    if len(placements) != len(inputs):
+        raise ValueError("input placement count must equal input artifact count")
+    unknown_workers = sorted(set(placements) - full_registry.worker_endpoints().keys())
+    if unknown_workers:
+        raise ValueError(f"unknown input Workers: {unknown_workers}")
 
     effective_run_id = run_id or f"blind-{uuid4().hex[:12]}"
     trace = TraceRecorder(runs_root, effective_run_id, exclusive=True)
-    clients = create_worker_clients(registry, config.worker_timeout_seconds)
+    clients = create_worker_clients(full_registry, config.worker_timeout_seconds)
     planner_client = None
     context: PlannerContext | None = None
     effective_config: dict[str, object] = {
         "run_id": effective_run_id,
-        "mode": "resource_blind",
+        "mode": effective_visibility,
         "planner_mode": config.planner_mode,
         "planner_harness": config.planner_harness,
-        "resource_aware": False,
+        "resource_aware": effective_visibility != "none",
+        "infrastructure_visibility": effective_visibility,
         "task": task,
         "experiment_config": str(config_path),
         "agents_config": str(agents_path) if agents_path is not None else None,
         "models_config": str(models_path),
         "executors_config": str(executors_path),
+        "resources_config": str(resources_path) if resources_path is not None else None,
         "runs_root": str(runs_root),
         "temporary_root": str(temporary_root),
         "input_worker": config.input_worker,
+        "input_workers": placements,
         "worker_timeout_seconds": config.worker_timeout_seconds,
         "max_turns": config.max_turns,
         "input_paths": [str(path.resolve()) for path in inputs],
+        "input_artifact_ids": list(artifact_ids) if artifact_ids is not None else None,
+        "run_metadata": dict(run_metadata or {}),
+        "eligible_executor_ids": (
+            sorted(eligible_executor_ids) if eligible_executor_ids is not None else None
+        ),
         "planning_ledger_initial_state": None,
         "agents": (
             [agent.model_dump(mode="json") for agent in agents.list()]
@@ -305,12 +466,13 @@ async def run_blind_experiment(
     }
     await trace.start(effective_config)
     try:
-        await preflight_workers(registry, clients)
-        initial_artifacts = await upload_inputs(
+        await preflight_workers(full_registry, clients)
+        initial_artifacts = await upload_placed_inputs(
             inputs,
             effective_run_id,
-            config.input_worker,
-            clients[config.input_worker],
+            placements,
+            clients,
+            artifact_ids=artifact_ids,
         )
         transfer = TransferManager(clients, trace)
         manager = ExecutionManager(clients, transfer, trace)
@@ -333,6 +495,8 @@ async def run_blind_experiment(
             model_registry=models,
             planner_mode=config.planner_mode,
             planner_harness=config.planner_harness,
+            resource_provider=resource_provider,
+            infrastructure_visibility=effective_visibility,
         )
         assert context.planning_ledger is not None
         initial_planning_state = await context.planning_ledger.snapshot()
@@ -340,13 +504,19 @@ async def run_blind_experiment(
             initial_planning_state.model_dump(mode="json")
         )
         await trace.save_config(effective_config)
+        workflow_started_at = perf_counter()
         answer = await Coordinator(
             context,
             model=planner_model,
             max_turns=config.max_turns,
         ).run(task)
+        e2e_ms = (perf_counter() - workflow_started_at) * 1000
         planning_state = await context.planning_ledger.snapshot()
-        run_result: dict[str, object] = {"success": True, "answer": answer}
+        run_result: dict[str, object] = {
+            "success": True,
+            "answer": answer,
+            "e2e_ms": e2e_ms,
+        }
         if config.planner_harness != "minimal":
             run_result["planner_harness"] = config.planner_harness
             run_result["planning_ledger"] = planning_state.model_dump(mode="json")

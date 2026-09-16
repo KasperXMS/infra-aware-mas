@@ -45,6 +45,7 @@ class ExecutorRegistry:
         self,
         executors: Iterable[ExecutorSpec],
         worker_endpoints: Mapping[str, str],
+        worker_sites: Mapping[str, str] | None = None,
     ) -> None:
         executor_list = [executor.model_copy(deep=True) for executor in executors]
         executor_ids = [executor.id for executor in executor_list]
@@ -55,11 +56,21 @@ class ExecutorRegistry:
             worker_id: self._validate_endpoint(worker_id, endpoint)
             for worker_id, endpoint in worker_endpoints.items()
         }
+        self._worker_sites = dict(worker_sites or {})
         missing_workers = sorted(
             {executor.worker_id for executor in executor_list} - self._worker_endpoints.keys()
         )
         if missing_workers:
             raise ValueError(f"executors reference unknown workers: {missing_workers}")
+        unknown_site_workers = sorted(self._worker_sites.keys() - self._worker_endpoints.keys())
+        if unknown_site_workers:
+            raise ValueError(f"worker sites reference unknown workers: {unknown_site_workers}")
+        for executor in executor_list:
+            configured_site = self._worker_sites.setdefault(executor.worker_id, executor.site)
+            if configured_site != executor.site:
+                raise ValueError(
+                    f"executor {executor.id!r} site does not match its Worker site"
+                )
         self._executors = {executor.id: executor for executor in executor_list}
 
     @classmethod
@@ -91,6 +102,19 @@ class ExecutorRegistry:
         return cls(
             executors,
             {worker_id: worker.endpoint for worker_id, worker in config.workers.items()},
+            {worker_id: worker.site for worker_id, worker in config.workers.items()},
+        )
+
+    def filtered(self, executor_ids: Iterable[str]) -> "ExecutorRegistry":
+        """Return an eligibility-filtered view while preserving all Worker locations."""
+        selected_ids = set(executor_ids)
+        unknown = sorted(selected_ids - self._executors.keys())
+        if unknown:
+            raise ValueError(f"unknown eligible executors: {unknown}")
+        return ExecutorRegistry(
+            (executor for key, executor in self._executors.items() if key in selected_ids),
+            self._worker_endpoints,
+            self._worker_sites,
         )
 
     def get(self, executor_id: str) -> ExecutorSpec:
@@ -123,6 +147,10 @@ class ExecutorRegistry:
     def worker_endpoints(self) -> dict[str, str]:
         """Return a copy of all configured Worker endpoints."""
         return dict(self._worker_endpoints)
+
+    def worker_sites(self) -> dict[str, str]:
+        """Return the unique configured site for every Worker."""
+        return dict(self._worker_sites)
 
     def worker_endpoint(self, worker_id: str) -> str:
         """Resolve a worker ID to its static HTTP endpoint."""

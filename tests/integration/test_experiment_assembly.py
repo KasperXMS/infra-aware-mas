@@ -22,6 +22,7 @@ from infra_mas.experiment import (
     preflight_workers,
     run_blind_experiment,
     upload_inputs,
+    upload_placed_inputs,
 )
 from infra_mas.planner.model_factory import PlannerModelConfig
 from infra_mas.runtime.agent_registry import AgentRegistry
@@ -85,6 +86,43 @@ async def test_preflight_rejects_executor_drift(tmp_path: Path) -> None:
     ) as http_client:
         with pytest.raises(ValueError, match="exposes executors"):
             await preflight_workers(registry, {"worker-a": WorkerClient(client=http_client)})
+
+
+async def test_uploads_each_input_to_its_configured_worker(tmp_path: Path) -> None:
+    sources = [tmp_path / "one.jpg", tmp_path / "two.jpg"]
+    sources[0].write_bytes(b"one")
+    sources[1].write_bytes(b"two")
+    services = {
+        worker_id: WorkerService(
+            worker_id,
+            ArtifactStore(tmp_path / worker_id, worker_id),
+            [WorkerExecutor(f"{worker_id}-vlm", "vision", MockBackend())],
+        )
+        for worker_id in ("worker-a", "worker-b")
+    }
+    async with AsyncExitStack() as stack:
+        clients: dict[str, WorkerClient] = {}
+        for worker_id, service in services.items():
+            http_client = await stack.enter_async_context(
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=create_app(service)),
+                    base_url=f"http://{worker_id}.test",
+                )
+            )
+            clients[worker_id] = WorkerClient(client=http_client)
+        uploaded = await upload_placed_inputs(
+            sources,
+            "placed-run",
+            ["worker-a", "worker-b"],
+            clients,
+            artifact_ids=["img_01", "img_02"],
+        )
+
+    assert [artifact.locations for artifact in uploaded] == [["worker-a"], ["worker-b"]]
+    assert [artifact.id for artifact in uploaded] == [
+        "placed-run/input-001-img_01.jpg",
+        "placed-run/input-002-img_02.jpg",
+    ]
 
 
 def test_dynamic_mode_does_not_require_agents_config() -> None:
@@ -305,6 +343,7 @@ planner:
         "model": "planner-model",
         "api": "chat_completions",
         "base_url": "http://planner.test/v1",
+        "base_url_env": None,
         "api_key_env": None,
         "timeout_seconds": 120.0,
     }
@@ -313,10 +352,10 @@ planner:
         for line in (run_directory / "trace.jsonl").read_text(encoding="utf-8").splitlines()
     ]
     assert [event["event_type"] for event in events] == ["run.start", "run.end"]
-    assert json.loads((run_directory / "result.json").read_text(encoding="utf-8")) == {
-        "success": True,
-        "answer": "answer",
-    }
+    result = json.loads((run_directory / "result.json").read_text(encoding="utf-8"))
+    assert result["success"] is True
+    assert result["answer"] == "answer"
+    assert result["e2e_ms"] >= 0
 
     original_trace = (run_directory / "trace.jsonl").read_bytes()
     with pytest.raises(ValueError, match="already exists and is non-empty"):

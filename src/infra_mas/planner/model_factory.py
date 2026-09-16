@@ -19,6 +19,7 @@ class PlannerModelConfig(BaseModel):
     model: NonEmptyString
     api: Literal["responses", "chat_completions"] = "responses"
     base_url: NonEmptyString | None = None
+    base_url_env: NonEmptyString | None = None
     api_key_env: NonEmptyString | None = "OPENAI_API_KEY"
     timeout_seconds: Annotated[float, Field(gt=0)] = 120.0
 
@@ -31,9 +32,17 @@ def create_planner_model(config: PlannerModelConfig) -> tuple[Model, AsyncOpenAI
         if not api_key:
             raise ValueError(f"required environment variable {config.api_key_env!r} is not set")
 
+    base_url = config.base_url
+    if config.base_url_env is not None:
+        base_url = os.getenv(config.base_url_env, "")
+        if not base_url:
+            raise ValueError(
+                f"required environment variable {config.base_url_env!r} is not set"
+            )
+
     client = AsyncOpenAI(
         api_key=api_key,
-        base_url=config.base_url,
+        base_url=base_url,
         timeout=config.timeout_seconds,
         max_retries=0,
     )

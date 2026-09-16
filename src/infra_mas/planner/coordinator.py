@@ -1,4 +1,4 @@
-"""Resource-blind top-level Coordinator."""
+"""Top-level Coordinator with optional raw infrastructure visibility."""
 
 from agents import Agent, RunConfig, Runner, Tool
 from agents.models.interface import Model
@@ -19,8 +19,6 @@ class Coordinator:
         model: str | Model | None = None,
         max_turns: int = 10,
     ) -> None:
-        if context.resource_aware:
-            raise ValueError("blind Coordinator requires resource_aware=False")
         if max_turns <= 0:
             raise ValueError("max_turns must be positive")
 
@@ -58,6 +56,27 @@ class Coordinator:
         artifact_ids = [artifact.id for artifact in self._context.artifact_catalog.list()]
         available_artifacts = ", ".join(artifact_ids) if artifact_ids else "none"
         planner_input = f"{task}\n\nAvailable input artifact IDs: {available_artifacts}"
+        if self._context.infrastructure_visibility in {"static", "snapshot"}:
+            assert self._context.resource_provider is not None
+            snapshot = self._context.resource_provider.snapshot(
+                self._context.artifact_catalog.list()
+            )
+            rendered_context = snapshot.render_static_for_planner()
+            if self._context.infrastructure_visibility == "snapshot":
+                rendered_context = (
+                    f"{rendered_context}\n\n{snapshot.render_dynamic_for_planner()}"
+                )
+            planner_input = f"{planner_input}\n\n{rendered_context}"
+            await self._context.trace.record(
+                "planner.infrastructure_context",
+                infrastructure_visibility=self._context.infrastructure_visibility,
+                static_context=snapshot.render_static_for_planner(),
+                dynamic_snapshot=(
+                    snapshot.model_dump(mode="json")
+                    if self._context.infrastructure_visibility == "snapshot"
+                    else None
+                ),
+            )
         assert self._context.planning_ledger is not None
         initial_state = await self._context.planning_ledger.snapshot()
         await self._context.trace.record(
@@ -75,7 +94,7 @@ class Coordinator:
                 hooks=self._trace_hooks,
                 run_config=RunConfig(
                     tracing_disabled=True,
-                    workflow_name="Infra-Aware MAS Blind Coordinator",
+                    workflow_name="Infra-Aware MAS Coordinator",
                 ),
             )
             final_output: object = run_result.final_output

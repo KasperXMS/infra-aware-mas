@@ -1,0 +1,20 @@
+blind_config: planner-none.yaml
+static_config: planner-static.yaml
+snapshot_config: planner-snapshot.yaml
+task: >-
+  Identify the image that contains a blue airplane and also contains a truck.
+  Return the image ID and briefly justify your answer.
+logical_model_id: edge-vlm
+inputs:
+  - ../../../taskset_v0/images/V1_img_01.jpg
+  - ../../../taskset_v0/images/V1_img_02.jpg
+  - ../../../taskset_v0/images/V1_img_03.jpg
+  - ../../../taskset_v0/images/V1_img_04.jpg
+  - ../../../taskset_v0/images/V1_img_05.jpg
+  - ../../../taskset_v0/images/V1_img_06.jpg
+worlds:
+  colocated:
+    input_workers: [a28, a28, a28, a28, a28, a28]
+  distributed:
+    input_workers: [a4, a4, a5, a5, a28, a28]
+output_root: ../../runs/pilot

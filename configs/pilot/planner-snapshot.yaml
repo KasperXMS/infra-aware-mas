@@ -1,0 +1,19 @@
+planner_mode: dynamic_models
+planner_harness: efficient
+agents_config: null
+models_config: models.yaml
+executors_config: executors.yaml
+resources_config: resources.yaml
+runs_root: ../../runs
+temporary_root: ../../.runtime
+infrastructure_visibility: snapshot
+worker_timeout_seconds: 600
+max_turns: 10
+scheduler:
+  type: locality_aware
+planner:
+  model: qwen3.8-max
+  api: chat_completions
+  base_url_env: QWEN_BASE_URL
+  api_key_env: DASHSCOPE_API_KEY
+  timeout_seconds: 600

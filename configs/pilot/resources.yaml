@@ -1,0 +1,30 @@
+service_times:
+  - executor_id: a4-vlm
+    model_id: edge-vlm
+    service_ms: 10000
+    source: static
+  - executor_id: a5-vlm
+    model_id: edge-vlm
+    service_ms: 10000
+    source: static
+  - executor_id: a28-vlm
+    model_id: edge-vlm
+    service_ms: 10000
+    source: static
+
+network_links:
+  - source_site: A4
+    target_site: A5
+    bandwidth_mbps: 100
+    rtt_ms: 2
+    bidirectional: true
+  - source_site: A4
+    target_site: A28
+    bandwidth_mbps: 100
+    rtt_ms: 2
+    bidirectional: true
+  - source_site: A5
+    target_site: A28
+    bandwidth_mbps: 100
+    rtt_ms: 2
+    bidirectional: true
