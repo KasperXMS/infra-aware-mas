@@ -1,0 +1,3788 @@
+{
+  "schema_version": "semantic-switch-report-v1",
+  "task_id": "astropy__astropy-14309",
+  "benchmark": "SWE-bench Verified",
+  "run_count": 12,
+  "worlds": {
+    "H1_edge": {
+      "world_id": "H1_edge",
+      "repository_artifact_id": "repo://astropy/astropy@cdb66059a2feb44ee49021874605ba90801f9986",
+      "repository_site": "edge",
+      "repository_size_bytes": 85732111,
+      "bandwidth_mbps": 1.0,
+      "rtt_ms": 50.0
+    },
+    "H2_cloud": {
+      "world_id": "H2_cloud",
+      "repository_artifact_id": "repo://astropy/astropy@cdb66059a2feb44ee49021874605ba90801f9986",
+      "repository_site": "cloud",
+      "repository_size_bytes": 85732111,
+      "bandwidth_mbps": 1.0,
+      "rtt_ms": 50.0
+    }
+  },
+  "cells": [
+    {
+      "world_id": "H1_edge",
+      "visibility": "snapshot",
+      "run_count": 3,
+      "evaluated_count": 3,
+      "resolved_rate": 1.0,
+      "median_e2e_ms": 559749.9770839931,
+      "median_planner_tokens": 323049.0,
+      "median_planner_latency_ms": 542434.0873310284,
+      "median_remote_reasoning_calls": 19.0,
+      "median_targeted_tests": 4.0,
+      "median_full_tests": 1.0,
+      "median_retry_replanning": 6.0,
+      "median_cross_site_transfer_bytes": 59328.0,
+      "median_cross_site_transfer_ms": 2577.405405463651,
+      "median_transmitted_code_context_bytes": 52651.0,
+      "median_code_tool_service_ms": 18419.104215456173,
+      "tool_count_medians": {
+        "apply_patch": 1.0,
+        "edit_file": 3.0,
+        "read_file": 12.0,
+        "run_full_test": 1.0,
+        "run_targeted_test": 4.0,
+        "search_code": 7.0,
+        "submit_patch": 1.0
+      },
+      "workflow_signatures": {
+        "read_file -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> read_file -> read_file -> read_file -> edit_file -> search_code -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> edit_file -> run_targeted_test -> run_targeted_test -> apply_patch -> submit_patch": 1,
+        "read_file -> search_code -> search_code -> search_code -> read_file -> search_code -> read_file -> search_code -> search_code -> search_code -> edit_file -> read_file -> read_file -> read_file -> search_code -> edit_file -> search_code -> run_targeted_test -> read_file -> read_file -> apply_patch -> run_full_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch": 1,
+        "read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> apply_patch -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> apply_patch -> edit_file -> edit_file -> apply_patch -> edit_file -> run_targeted_test -> run_full_test -> edit_file -> edit_file -> edit_file -> read_file -> submit_patch": 1
+      },
+      "modal_workflow_signature": "read_file -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> read_file -> read_file -> read_file -> edit_file -> search_code -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> edit_file -> run_targeted_test -> run_targeted_test -> apply_patch -> submit_patch"
+    },
+    {
+      "world_id": "H1_edge",
+      "visibility": "static",
+      "run_count": 3,
+      "evaluated_count": 3,
+      "resolved_rate": 1.0,
+      "median_e2e_ms": 839853.2747869904,
+      "median_planner_tokens": 302101.0,
+      "median_planner_latency_ms": 821016.2512980169,
+      "median_remote_reasoning_calls": 19.0,
+      "median_targeted_tests": 5.0,
+      "median_full_tests": 0.0,
+      "median_retry_replanning": 4.0,
+      "median_cross_site_transfer_bytes": 60213.0,
+      "median_cross_site_transfer_ms": 3368.091407464817,
+      "median_transmitted_code_context_bytes": 50938.0,
+      "median_code_tool_service_ms": 21956.30260161124,
+      "tool_count_medians": {
+        "apply_patch": 2.0,
+        "edit_file": 3.0,
+        "read_file": 8.0,
+        "run_targeted_test": 5.0,
+        "search_code": 9.0,
+        "submit_patch": 1.0
+      },
+      "workflow_signatures": {
+        "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> edit_file -> apply_patch -> apply_patch -> apply_patch -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch": 1,
+        "read_file -> search_code -> read_file -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> edit_file -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> read_file -> apply_patch -> run_targeted_test -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> apply_patch -> run_targeted_test -> submit_patch": 1,
+        "read_file -> search_code -> read_file -> search_code -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> edit_file -> edit_file -> apply_patch -> edit_file -> run_targeted_test -> run_targeted_test -> submit_patch": 1
+      },
+      "modal_workflow_signature": "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> edit_file -> apply_patch -> apply_patch -> apply_patch -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch"
+    },
+    {
+      "world_id": "H2_cloud",
+      "visibility": "snapshot",
+      "run_count": 3,
+      "evaluated_count": 3,
+      "resolved_rate": 0.6666666666666666,
+      "median_e2e_ms": 1181139.4804180018,
+      "median_planner_tokens": 405834.0,
+      "median_planner_latency_ms": 1178965.2752849506,
+      "median_remote_reasoning_calls": 26.0,
+      "median_targeted_tests": 2.0,
+      "median_full_tests": 1.0,
+      "median_retry_replanning": 7.0,
+      "median_cross_site_transfer_bytes": 0.0,
+      "median_cross_site_transfer_ms": 0.0,
+      "median_transmitted_code_context_bytes": 49983.0,
+      "median_code_tool_service_ms": 1350.6893689918797,
+      "tool_count_medians": {
+        "apply_patch": 1.0,
+        "edit_file": 9.0,
+        "read_file": 10.0,
+        "run_full_test": 1.0,
+        "run_targeted_test": 2.0,
+        "search_code": 9.0,
+        "submit_patch": 1.0
+      },
+      "workflow_signatures": {
+        "read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> search_code -> search_code -> edit_file -> run_targeted_test -> run_full_test -> submit_patch": 1,
+        "read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> edit_file -> edit_file -> read_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> edit_file -> apply_patch -> run_full_test -> edit_file -> edit_file -> edit_file -> run_targeted_test -> edit_file -> edit_file -> edit_file -> edit_file -> read_file": 1,
+        "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> edit_file -> read_file -> search_code -> read_file -> edit_file -> search_code -> read_file -> edit_file -> edit_file -> apply_patch -> run_targeted_test -> run_full_test -> apply_patch -> edit_file -> run_targeted_test -> edit_file -> apply_patch -> read_file -> edit_file -> edit_file -> read_file -> edit_file -> submit_patch": 1
+      },
+      "modal_workflow_signature": "read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> search_code -> search_code -> edit_file -> run_targeted_test -> run_full_test -> submit_patch"
+    },
+    {
+      "world_id": "H2_cloud",
+      "visibility": "static",
+      "run_count": 3,
+      "evaluated_count": 3,
+      "resolved_rate": 0.3333333333333333,
+      "median_e2e_ms": 1515052.601,
+      "median_planner_tokens": 581225.0,
+      "median_planner_latency_ms": 1513141.8247651018,
+      "median_remote_reasoning_calls": 30.0,
+      "median_targeted_tests": 3.0,
+      "median_full_tests": 1.0,
+      "median_retry_replanning": 13.0,
+      "median_cross_site_transfer_bytes": 0.0,
+      "median_cross_site_transfer_ms": 0.0,
+      "median_transmitted_code_context_bytes": 49584.0,
+      "median_code_tool_service_ms": 1734.3683290237095,
+      "tool_count_medians": {
+        "apply_patch": 4.0,
+        "edit_file": 11.0,
+        "read_file": 10.0,
+        "run_full_test": 1.0,
+        "run_targeted_test": 3.0,
+        "search_code": 9.0,
+        "submit_patch": 0.0
+      },
+      "workflow_signatures": {
+        "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> apply_patch -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> read_file -> apply_patch -> apply_patch -> run_targeted_test -> run_full_test -> run_targeted_test -> edit_file -> apply_patch -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch": 1,
+        "read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> read_file -> read_file -> edit_file -> run_targeted_test -> run_full_test -> run_targeted_test -> apply_patch -> apply_patch -> edit_file -> edit_file -> edit_file -> edit_file -> edit_file -> edit_file -> read_file -> edit_file -> edit_file -> edit_file -> edit_file -> apply_patch -> edit_file -> edit_file -> apply_patch": 1,
+        "read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> search_code -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_full_test -> read_file -> edit_file -> edit_file -> edit_file -> edit_file -> apply_patch -> apply_patch -> edit_file -> edit_file -> apply_patch -> run_targeted_test -> edit_file -> run_targeted_test -> edit_file -> read_file": 1
+      },
+      "modal_workflow_signature": "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> apply_patch -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> read_file -> apply_patch -> apply_patch -> run_targeted_test -> run_full_test -> run_targeted_test -> edit_file -> apply_patch -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch"
+    }
+  ],
+  "runs": [
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h1-snapshot-r1",
+      "world_id": "H1_edge",
+      "visibility": "snapshot",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "## Summary\n\n**Root cause:** `is_fits()` in `astropy/io/fits/connect.py` is registered as a format identifier for both `Table` and `CCDData`. When `identify_format()` is called with only a path (and no extra positional arguments — the documented signature allows `args` to be empty), the code path reached the unconditional `isinstance(args[0], ...)` expression, raising `IndexError: tuple index out of range`.\n\nThis was introduced by commit `2a0c5c6` which added HDU-object detection: previously the function returned `None`/`False` for a non-FITS-extension filepath, but the new fall-through indexed `args[0]` even when a `filepath` was supplied.\n\n**Fix (`astropy/io/fits/connect.py`):**\n\n```python\n    elif filepath is not None:\n        if filepath.lower().endswith(\n            (\".fits\", \".fits.gz\", \".fit\", \".fit.gz\", \".fts\", \".fts.gz\")\n        ):\n            return True\n\n    # Both ``filepath`` and ``fileobj`` are None (or ``filepath`` does not have a\n    # FITS extension), so the only remaining way to identify a FITS file is from\n    # the first positional argument, which may not have been given at all.\n    return bool(args) and isinstance(\n        args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU)\n    )\n```\n\nThe behavior is unchanged whenever an argument *is* passed (so `Table.read(hdulist)` / `CCDData.read(hdu)` still identify as FITS), and simply returns `False` instead of crashing when only a filename is given.\n\n**Also added:**\n- A regression test `test_is_fits_identifier` in `astropy/io/fits/tests/test_connect.py` covering the exact reproduction from the issue (`identify_format(\"write\", Table, \"bububu.ecsv\", None, [], {})`), extension-based and object-based identification.\n- A changelog fragment `docs/changes/io.fits/14336.bugfix.rst`.\n\n**Validation:** `astropy/io/fits/tests/test_connect.py` (142 passed), `astropy/io/registry` (232 passed), and the new regression test all pass. The one failure in `astropy/nddata/tests/test_ccddata.py::test_wcs_keywords_removed_from_header` is a pre-existing, unrelated WCS `FITSFixedWarning` ordering issue.",
+      "e2e_ms": 559749.9770839931,
+      "planner_latency_ms": 542434.0873310284,
+      "planner_tokens": 323049,
+      "remote_reasoning_calls": 19,
+      "tool_counts": {
+        "apply_patch": 1,
+        "edit_file": 3,
+        "read_file": 12,
+        "run_targeted_test": 5,
+        "search_code": 6,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 5,
+      "full_test_count": 0,
+      "retry_replanning_count": 3,
+      "cross_site_transfer_bytes": 59328,
+      "cross_site_transfer_ms": 2331.5694355696905,
+      "transmitted_code_context_bytes": 52651,
+      "code_tool_service_ms": 18419.104215456173,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.9800839256495237,
+          "cross_site_transfer_bytes": 2565
+        },
+        {
+          "step": 2,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.6458091344684362,
+          "cross_site_transfer_bytes": 4285
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.2995791621506214,
+          "cross_site_transfer_bytes": 6160
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 21.705414168536663,
+          "cross_site_transfer_bytes": 767
+        },
+        {
+          "step": 5,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.273373125120997,
+          "cross_site_transfer_bytes": 224
+        },
+        {
+          "step": 6,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 11.798413004726171,
+          "cross_site_transfer_bytes": 214
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.469243999570608,
+          "cross_site_transfer_bytes": 1556
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 22.44879794307053,
+          "cross_site_transfer_bytes": 1779
+        },
+        {
+          "step": 9,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.4273129422217607,
+          "cross_site_transfer_bytes": 1662
+        },
+        {
+          "step": 10,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.023501882329583,
+          "cross_site_transfer_bytes": 3970
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.8262958619743586,
+          "cross_site_transfer_bytes": 2558
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 13.978880131617188,
+          "cross_site_transfer_bytes": 1228
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.207926008850336,
+          "cross_site_transfer_bytes": 1224
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.3265220914036036,
+          "cross_site_transfer_bytes": 1085
+        },
+        {
+          "step": 15,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.412720048800111,
+          "cross_site_transfer_bytes": 3268
+        },
+        {
+          "step": 16,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.9166259337216616,
+          "cross_site_transfer_bytes": 4203
+        },
+        {
+          "step": 17,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.925381159409881,
+          "cross_site_transfer_bytes": 1049
+        },
+        {
+          "step": 19,
+          "tool": "search_code",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.705668892711401,
+          "cross_site_transfer_bytes": 1481
+        },
+        {
+          "step": 21,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1927.543706027791,
+          "cross_site_transfer_bytes": 426
+        },
+        {
+          "step": 22,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5630.781818879768,
+          "cross_site_transfer_bytes": 3589
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2766.5051461663097,
+          "cross_site_transfer_bytes": 5372
+        },
+        {
+          "step": 24,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.617028869688511,
+          "cross_site_transfer_bytes": 737
+        },
+        {
+          "step": 25,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 3018.7524480279535,
+          "cross_site_transfer_bytes": 6419
+        },
+        {
+          "step": 26,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4925.992005970329,
+          "cross_site_transfer_bytes": 426
+        },
+        {
+          "step": 27,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.06839407980442,
+          "cross_site_transfer_bytes": 608
+        },
+        {
+          "step": 28,
+          "tool": "submit_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.472118018195033,
+          "cross_site_transfer_bytes": 2473
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h1-snapshot-r1/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> read_file -> read_file -> read_file -> edit_file -> search_code -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> edit_file -> run_targeted_test -> run_targeted_test -> apply_patch -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h1-snapshot-r2",
+      "world_id": "H1_edge",
+      "visibility": "snapshot",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "The patch has been submitted successfully.\n\n**What changed:**\n\n1. `astropy/io/fits/connect.py` — `is_fits()` now only inspects `args[0]` when a data object was actually supplied (`elif args:`), and returns `False` when neither a file object, a matching path, nor any positional args are present. This fixes the `IndexError: tuple index out of range` raised from `identify_format(\"write\", Table, \"bububu.ecsv\", None, [], {})`, and also restores the correct behavior where a non-FITS path no longer falls through to the HDU-object check.\n\n2. `astropy/io/fits/tests/test_connect.py` — added `test_is_fits` covering FITS/non-FITS path names, the no-path/no-args case (the regression), an `HDUList` passed positionally (preserving `Table.read(hdulist)` support), a non-HDU object, and a real file object.\n\n3. `docs/changes/io.fits/14285.bugfix.rst` — changelog entry.\n\n**Validation:** `astropy/io/fits/tests/test_connect.py` passes fully (142 passed, 8 skipped, 5 xfailed). The full-suite and two other targeted runs failed only at collection time due to environment issues (a pytest `PytestRemovedIn10Warning` on `parametrize(product(...))` in convolution/coordinates tests, and a stray `.hypothesis` directory), which are pre-existing and unrelated to this change.",
+      "e2e_ms": 361699.66196999303,
+      "planner_latency_ms": 293961.1284470011,
+      "planner_tokens": 284931,
+      "remote_reasoning_calls": 18,
+      "tool_counts": {
+        "apply_patch": 1,
+        "edit_file": 2,
+        "read_file": 8,
+        "run_full_test": 1,
+        "run_targeted_test": 4,
+        "search_code": 9,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 4,
+      "full_test_count": 1,
+      "retry_replanning_count": 6,
+      "cross_site_transfer_bytes": 62116,
+      "cross_site_transfer_ms": 2746.725663659163,
+      "transmitted_code_context_bytes": 55639,
+      "code_tool_service_ms": 72947.82445742749,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.410359051078558,
+          "cross_site_transfer_bytes": 3782
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 20.39149310439825,
+          "cross_site_transfer_bytes": 261
+        },
+        {
+          "step": 3,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 23.054420948028564,
+          "cross_site_transfer_bytes": 767
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 38.9399251434952,
+          "cross_site_transfer_bytes": 1836
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.150848999619484,
+          "cross_site_transfer_bytes": 5422
+        },
+        {
+          "step": 6,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.60391603782773,
+          "cross_site_transfer_bytes": 224
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.6177501529455185,
+          "cross_site_transfer_bytes": 3831
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.75316304154694,
+          "cross_site_transfer_bytes": 223
+        },
+        {
+          "step": 9,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.68116202764213,
+          "cross_site_transfer_bytes": 1668
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.421810999512672,
+          "cross_site_transfer_bytes": 4805
+        },
+        {
+          "step": 11,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.7394889406859875,
+          "cross_site_transfer_bytes": 1872
+        },
+        {
+          "step": 12,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0.785724027082324,
+          "cross_site_transfer_bytes": 221
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.2704231087118387,
+          "cross_site_transfer_bytes": 2579
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.601867076009512,
+          "cross_site_transfer_bytes": 8556
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.47379507124424,
+          "cross_site_transfer_bytes": 335
+        },
+        {
+          "step": 16,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.028617102652788,
+          "cross_site_transfer_bytes": 1317
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5741.523334989324,
+          "cross_site_transfer_bytes": 353
+        },
+        {
+          "step": 18,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5736.696945037693,
+          "cross_site_transfer_bytes": 3589
+        },
+        {
+          "step": 19,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.203078009188175,
+          "cross_site_transfer_bytes": 1994
+        },
+        {
+          "step": 21,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.300392819568515,
+          "cross_site_transfer_bytes": 530
+        },
+        {
+          "step": 22,
+          "tool": "run_full_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 54300.256605958566,
+          "cross_site_transfer_bytes": 9733
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1763.0662037990987,
+          "cross_site_transfer_bytes": 2051
+        },
+        {
+          "step": 24,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1740.6620238907635,
+          "cross_site_transfer_bytes": 2089
+        },
+        {
+          "step": 25,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 3487.471681088209,
+          "cross_site_transfer_bytes": 2072
+        },
+        {
+          "step": 26,
+          "tool": "submit_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.719427002593875,
+          "cross_site_transfer_bytes": 2006
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h1-snapshot-r2/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> search_code -> search_code -> read_file -> search_code -> read_file -> search_code -> search_code -> search_code -> edit_file -> read_file -> read_file -> read_file -> search_code -> edit_file -> search_code -> run_targeted_test -> read_file -> read_file -> apply_patch -> run_full_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h1-snapshot-r3",
+      "world_id": "H1_edge",
+      "visibility": "snapshot",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "Submitted the patch.\n\n## Summary\n\n**Issue:** `IndexError: tuple index out of range` from `astropy/io/fits/connect.py::is_fits` when `identify_format()` is called with a path that has no FITS extension.\n\n**Cause:** The FITS identifier's fallback branch unconditionally indexed `args[0]`:\n\n```python\nif fileobj is not None:\n    ...\nelif filepath is not None:\n    if filepath.lower().endswith((\".fits\", ...)):\n        return True\nreturn isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))\n```\n\nCommit `2a0c5c6` moved the HDU-type check into this shared fallthrough, so it now also runs for callers that pass a path (or nothing) and no extra positional arguments — `args` is empty and `args[0]` raises. The same latent defect existed in `is_hdf5()` and `is_votable()`.\n\n**Fix (3 production files):**\n- `astropy/io/fits/connect.py`: `is_fits()` returns `False` immediately when a path is given that lacks a FITS extension; the HDU `isinstance` check only runs when `len(args) >= 1`, otherwise `False`.\n- `astropy/io/misc/hdf5.py`: `is_hdf5()` returns `False` early when no extra positional args are supplied (also avoids a needless `h5py` import).\n- `astropy/io/votable/connect.py`: `is_votable()` guards the `args[0]` access with a length check.\n\n**Tests added:** `astropy/io/fits/tests/test_connect_is_fits.py` covering the exact issue reproduction, FITS/non-FITS/case-variant extensions, HDUList objects, the no-input case, and `identify_format()` integration. Plus a `docs/changes/io.fits/14316.bugfix.rst` entry.\n\n**Note on validation:** Both `run_targeted_test` and `run_full_test` fail during *collection* in this environment with a pre-existing, unrelated error (`UserWarning: Skipping collection of '.hypothesis' directory` — pytest's `norecursedirs` override vs. a leftover `.hypothesis` dir at the repo root). This blocks all tests regardless of my change, so I verified the fix by direct code analysis of the identifier contract in `io/registry/base.py::identify_format` and `io/registry/core.py` `read`/`write` call sites.",
+      "e2e_ms": 1194837.8251410031,
+      "planner_latency_ms": 1185322.1553298645,
+      "planner_tokens": 452415,
+      "remote_reasoning_calls": 28,
+      "tool_counts": {
+        "apply_patch": 3,
+        "edit_file": 9,
+        "read_file": 12,
+        "run_full_test": 1,
+        "run_targeted_test": 3,
+        "search_code": 7,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 3,
+      "full_test_count": 1,
+      "retry_replanning_count": 9,
+      "cross_site_transfer_bytes": 49369,
+      "cross_site_transfer_ms": 2577.405405463651,
+      "transmitted_code_context_bytes": 37759,
+      "code_tool_service_ms": 7302.024478558451,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.3912480790168047,
+          "cross_site_transfer_bytes": 3783
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 23.770096944645047,
+          "cross_site_transfer_bytes": 2093
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.069079015403986,
+          "cross_site_transfer_bytes": 1811
+        },
+        {
+          "step": 4,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.444649977609515,
+          "cross_site_transfer_bytes": 2150
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.4530387707054615,
+          "cross_site_transfer_bytes": 3064
+        },
+        {
+          "step": 6,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 21.804193034768105,
+          "cross_site_transfer_bytes": 1070
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.6531260702759027,
+          "cross_site_transfer_bytes": 799
+        },
+        {
+          "step": 8,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.8690550718456507,
+          "cross_site_transfer_bytes": 1043
+        },
+        {
+          "step": 9,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.972127921879292,
+          "cross_site_transfer_bytes": 216
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 23.77283596433699,
+          "cross_site_transfer_bytes": 1779
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.2640581484884024,
+          "cross_site_transfer_bytes": 2899
+        },
+        {
+          "step": 12,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.743530949577689,
+          "cross_site_transfer_bytes": 2645
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.263395141810179,
+          "cross_site_transfer_bytes": 2256
+        },
+        {
+          "step": 14,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.196334052830935,
+          "cross_site_transfer_bytes": 198
+        },
+        {
+          "step": 15,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.680515198037028,
+          "cross_site_transfer_bytes": 1865
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 10.068200994282961,
+          "cross_site_transfer_bytes": 472
+        },
+        {
+          "step": 17,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "search_code",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": false,
+          "service_ms": 5.956890061497688,
+          "cross_site_transfer_bytes": 1861
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.426369210705161,
+          "cross_site_transfer_bytes": 592
+        },
+        {
+          "step": 21,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.316389095038176,
+          "cross_site_transfer_bytes": 784
+        },
+        {
+          "step": 22,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.412194946780801,
+          "cross_site_transfer_bytes": 534
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1782.7669179532677,
+          "cross_site_transfer_bytes": 2075
+        },
+        {
+          "step": 24,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1771.2034399155527,
+          "cross_site_transfer_bytes": 2089
+        },
+        {
+          "step": 25,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.058383086696267,
+          "cross_site_transfer_bytes": 463
+        },
+        {
+          "step": 26,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.502539988607168,
+          "cross_site_transfer_bytes": 944
+        },
+        {
+          "step": 27,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.764521960169077,
+          "cross_site_transfer_bytes": 856
+        },
+        {
+          "step": 28,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 10.122707113623619,
+          "cross_site_transfer_bytes": 2563
+        },
+        {
+          "step": 29,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.702897975221276,
+          "cross_site_transfer_bytes": 577
+        },
+        {
+          "step": 30,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1766.3163100369275,
+          "cross_site_transfer_bytes": 2091
+        },
+        {
+          "step": 31,
+          "tool": "run_full_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1770.3408908564597,
+          "cross_site_transfer_bytes": 2090
+        },
+        {
+          "step": 32,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1.7746919766068459,
+          "cross_site_transfer_bytes": 597
+        },
+        {
+          "step": 33,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.509627819061279,
+          "cross_site_transfer_bytes": 491
+        },
+        {
+          "step": 34,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.596638027578592,
+          "cross_site_transfer_bytes": 663
+        },
+        {
+          "step": 35,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 36,
+          "tool": "submit_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.83758319914341,
+          "cross_site_transfer_bytes": 1956
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h1-snapshot-r3/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> apply_patch -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> apply_patch -> edit_file -> edit_file -> apply_patch -> edit_file -> run_targeted_test -> run_full_test -> edit_file -> edit_file -> edit_file -> read_file -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h1-static-r1",
+      "world_id": "H1_edge",
+      "visibility": "static",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "The patch has been submitted successfully.\n\n**Final solution:**\n\n1. **`astropy/io/fits/connect.py`** (the actual fix) — `is_fits()` now returns `False` for a non-FITS path instead of unconditionally dereferencing `args[0]`:\n\n```python\nif fileobj is not None:\n    pos = fileobj.tell()\n    sig = fileobj.read(30)\n    fileobj.seek(pos)\n    return sig == FITS_SIGNATURE\nelif filepath is not None:\n    if str(filepath).lower().endswith(\n        (\".fits\", \".fits.gz\", \".fit\", \".fit.gz\", \".fts\", \".fts.gz\")\n    ):\n        return True\nelif args and isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU)):\n    return True\nreturn False\n```\n\nThe `str(filepath)` conversion also makes the identifier robust against path-like inputs, and the `elif args and ...` branch preserves the object-based identification (`Table.read(HDUList(...))`, single `TableHDU`, etc.) that commit 2a0c5c6f was meant to add.\n\n2. **`astropy/io/fits/tests/test_connect.py`** — new `test_is_fits_without_args` regression test asserting the exact reproducer from the issue (`identify_format(\"write\", Table, \"bububu.ecsv\", None, [], {})` no longer raises and doesn't match `fits`), plus extension-based and HDU-object-based identification.\n\n3. **`docs/changes/io.fits/14233.bugfix.rst`** — changelog entry (note: the issue number may correspond to 14309 per the workspace env name; the file name is cosmetic).\n\nValidation: `astropy/io/fits/tests/test_connect.py` → 142 passed / 8 skipped / 5 xfailed; `astropy/io/registry/tests` → 231 passed; `astropy/table/tests/test_pprint.py` → 84 passed. The single `test_ccddata.py::test_wcs_keywords_removed_from_header` failure (a `datfix` vs `unitfix` WCS warning mismatch) and the `test_core.py` collection error (missing `pytest-openfiles` plugin) are pre-existing environment issues unrelated to this change.",
+      "e2e_ms": 839853.2747869904,
+      "planner_latency_ms": 821016.2512980169,
+      "planner_tokens": 302101,
+      "remote_reasoning_calls": 19,
+      "tool_counts": {
+        "apply_patch": 3,
+        "edit_file": 1,
+        "read_file": 8,
+        "run_targeted_test": 5,
+        "search_code": 9,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 5,
+      "full_test_count": 0,
+      "retry_replanning_count": 4,
+      "cross_site_transfer_bytes": 60213,
+      "cross_site_transfer_ms": 3368.091407464817,
+      "transmitted_code_context_bytes": 50938,
+      "code_tool_service_ms": 21956.30260161124,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.069399951025844,
+          "cross_site_transfer_bytes": 2553
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 24.416563101112843,
+          "cross_site_transfer_bytes": 767
+        },
+        {
+          "step": 3,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.857609005644917,
+          "cross_site_transfer_bytes": 224
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.205108068883419,
+          "cross_site_transfer_bytes": 217
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.266486106440425,
+          "cross_site_transfer_bytes": 7708
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.8924370892345905,
+          "cross_site_transfer_bytes": 2444
+        },
+        {
+          "step": 7,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.542167954146862,
+          "cross_site_transfer_bytes": 191
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.080715037882328,
+          "cross_site_transfer_bytes": 282
+        },
+        {
+          "step": 9,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.903614029288292,
+          "cross_site_transfer_bytes": 7790
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 7.957745110616088,
+          "cross_site_transfer_bytes": 198
+        },
+        {
+          "step": 11,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 11.452981969341636,
+          "cross_site_transfer_bytes": 2280
+        },
+        {
+          "step": 12,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.6545770708471537,
+          "cross_site_transfer_bytes": 1447
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.353554919362068,
+          "cross_site_transfer_bytes": 2557
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.095876986160874,
+          "cross_site_transfer_bytes": 2176
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.677569149062037,
+          "cross_site_transfer_bytes": 210
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.132127976045012,
+          "cross_site_transfer_bytes": 194
+        },
+        {
+          "step": 17,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.896149970591068,
+          "cross_site_transfer_bytes": 1139
+        },
+        {
+          "step": 19,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": false,
+          "service_ms": 6.567721022292972,
+          "cross_site_transfer_bytes": 2398
+        },
+        {
+          "step": 20,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 11.568453861400485,
+          "cross_site_transfer_bytes": 1923
+        },
+        {
+          "step": 21,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.046218125149608,
+          "cross_site_transfer_bytes": 570
+        },
+        {
+          "step": 22,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5749.049453996122,
+          "cross_site_transfer_bytes": 3589
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 3018.650074955076,
+          "cross_site_transfer_bytes": 6418
+        },
+        {
+          "step": 24,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5769.0808640327305,
+          "cross_site_transfer_bytes": 5359
+        },
+        {
+          "step": 25,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2541.114541934803,
+          "cross_site_transfer_bytes": 2076
+        },
+        {
+          "step": 26,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 4701.856904197484,
+          "cross_site_transfer_bytes": 2904
+        },
+        {
+          "step": 27,
+          "tool": "submit_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.91368599049747,
+          "cross_site_transfer_bytes": 2599
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h1-static-r1/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> edit_file -> apply_patch -> apply_patch -> apply_patch -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h1-static-r2",
+      "world_id": "H1_edge",
+      "visibility": "static",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "Submitted. The final patch:\n\n- **`astropy/io/fits/connect.py`** — `is_fits` guards the `args[0]` lookup (`bool(args) and isinstance(...)`), restoring the pre-`2a0c5c6` behavior of returning `False` (rather than `IndexError`) when a path without a FITS extension is passed and no object arguments are given.\n- **`astropy/io/misc/hdf5.py`** — `is_hdf5` guards `args[0]` the same way (reached when `filepath` is `None`).\n- **`astropy/io/votable/connect.py`** — `is_votable` guards `args[0]` the same way.\n- **`astropy/io/tests/test_identifiers_no_args.py`** — regression tests reproducing the reported `identify_format(\"write\", Table, \"bububu.ecsv\", None, [], {})` call across extensions and `path=None`, for both `\"write\"` and `\"read\"`.\n- **`docs/changes/io/14309.bugfix.rst`** — changelog entry.",
+      "e2e_ms": 1063625.2761789947,
+      "planner_latency_ms": 1023442.1929038945,
+      "planner_tokens": 604114,
+      "remote_reasoning_calls": 27,
+      "tool_counts": {
+        "apply_patch": 2,
+        "edit_file": 7,
+        "read_file": 10,
+        "run_targeted_test": 14,
+        "search_code": 9,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 14,
+      "full_test_count": 0,
+      "retry_replanning_count": 8,
+      "cross_site_transfer_bytes": 71417,
+      "cross_site_transfer_ms": 5666.252314695157,
+      "transmitted_code_context_bytes": 62025,
+      "code_tool_service_ms": 48415.49718333408,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.961255006492138,
+          "cross_site_transfer_bytes": 2183
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 13.667250983417034,
+          "cross_site_transfer_bytes": 1228
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.13854799605906,
+          "cross_site_transfer_bytes": 1497
+        },
+        {
+          "step": 4,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.4127170220017433,
+          "cross_site_transfer_bytes": 1540
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.9281478598713875,
+          "cross_site_transfer_bytes": 3168
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.9617141224443913,
+          "cross_site_transfer_bytes": 2061
+        },
+        {
+          "step": 7,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 23.252513958141208,
+          "cross_site_transfer_bytes": 1060
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 43.34017098881304,
+          "cross_site_transfer_bytes": 261
+        },
+        {
+          "step": 9,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.995926050469279,
+          "cross_site_transfer_bytes": 873
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 20.469806157052517,
+          "cross_site_transfer_bytes": 695
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.531143000349402,
+          "cross_site_transfer_bytes": 3063
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 20.183634012937546,
+          "cross_site_transfer_bytes": 1780
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.1267900485545397,
+          "cross_site_transfer_bytes": 799
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.5900769289582968,
+          "cross_site_transfer_bytes": 873
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.241929113864899,
+          "cross_site_transfer_bytes": 216
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.626777170225978,
+          "cross_site_transfer_bytes": 289
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "search_code",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 6.759702926501632,
+          "cross_site_transfer_bytes": 1082
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 7.105792872607708,
+          "cross_site_transfer_bytes": 599
+        },
+        {
+          "step": 21,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.697367945685983,
+          "cross_site_transfer_bytes": 380
+        },
+        {
+          "step": 22,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 7.741261972114444,
+          "cross_site_transfer_bytes": 435
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5758.437665877864,
+          "cross_site_transfer_bytes": 3570
+        },
+        {
+          "step": 24,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2766.6765961330384,
+          "cross_site_transfer_bytes": 5359
+        },
+        {
+          "step": 25,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5576.028697891161,
+          "cross_site_transfer_bytes": 3593
+        },
+        {
+          "step": 26,
+          "tool": "read_file",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 27,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.875262156128883,
+          "cross_site_transfer_bytes": 1626
+        },
+        {
+          "step": 28,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1582.7422910369933,
+          "cross_site_transfer_bytes": 523
+        },
+        {
+          "step": 29,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.821119993925095,
+          "cross_site_transfer_bytes": 1281
+        },
+        {
+          "step": 30,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.061381056904793,
+          "cross_site_transfer_bytes": 751
+        },
+        {
+          "step": 31,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5.071024177595973,
+          "cross_site_transfer_bytes": 553
+        },
+        {
+          "step": 32,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1585.9499159269035,
+          "cross_site_transfer_bytes": 523
+        },
+        {
+          "step": 33,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 2680.1126929931343,
+          "cross_site_transfer_bytes": 368
+        },
+        {
+          "step": 34,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4742.641387972981,
+          "cross_site_transfer_bytes": 10294
+        },
+        {
+          "step": 35,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 8730.769343907014,
+          "cross_site_transfer_bytes": 10372
+        },
+        {
+          "step": 36,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1072.4627459421754,
+          "cross_site_transfer_bytes": 358
+        },
+        {
+          "step": 37,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 1071.5230060741305,
+          "cross_site_transfer_bytes": 362
+        },
+        {
+          "step": 38,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": false,
+          "service_ms": 2146.5148739516735,
+          "cross_site_transfer_bytes": 356
+        },
+        {
+          "step": 39,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1579.6527799684554,
+          "cross_site_transfer_bytes": 523
+        },
+        {
+          "step": 40,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 7164.498934987932,
+          "cross_site_transfer_bytes": 3570
+        },
+        {
+          "step": 41,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.55443999171257,
+          "cross_site_transfer_bytes": 549
+        },
+        {
+          "step": 42,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1707.097755977884,
+          "cross_site_transfer_bytes": 494
+        },
+        {
+          "step": 43,
+          "tool": "submit_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 12.272741179913282,
+          "cross_site_transfer_bytes": 2310
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h1-static-r2/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> read_file -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> edit_file -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> read_file -> apply_patch -> run_targeted_test -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> apply_patch -> run_targeted_test -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h1-static-r3",
+      "world_id": "H1_edge",
+      "visibility": "static",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "Patch submitted successfully.\n\n**Summary of the fix:**\n\nThe bug was in `astropy/io/fits/connect.py`'s `is_fits()` identifier function. After commit 2a0c5c6f, the fallback `return isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))` unconditionally indexed `args[0]`, but `identify_format()` passes `origin, path, fileobj, *args` — when there are no extra positional args (the typical case for `Table.write(\"file.ecsv\")`), `args` is empty and an `IndexError` was raised instead of the previous `False`/`None`.\n\nChanges:\n1. **`astropy/io/fits/connect.py`** — guard the HDU type check with `len(args) > 0 and isinstance(...)`, restoring the pre-regression behavior of returning a falsy value when the path doesn't look like FITS and no HDU object was supplied.\n2. **`astropy/io/fits/tests/test_connect.py`** — added `test_is_fits_without_hdu` covering direct calls with/without a FITS extension and the end-to-end `Table.write()` path (which now correctly raises `IORegistryError` for an unrecognized format).\n3. **`changelog/14322.bugfix.rst`** — changelog entry.\n\nValidation: `astropy/io/fits/tests/test_connect.py` (142 passed) and `astropy/io/registry/tests` (231 passed).",
+      "e2e_ms": 462516.87803899404,
+      "planner_latency_ms": 451646.59704105,
+      "planner_tokens": 245396,
+      "remote_reasoning_calls": 18,
+      "tool_counts": {
+        "apply_patch": 1,
+        "edit_file": 3,
+        "read_file": 8,
+        "run_targeted_test": 2,
+        "search_code": 9,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 2,
+      "full_test_count": 0,
+      "retry_replanning_count": 1,
+      "cross_site_transfer_bytes": 51174,
+      "cross_site_transfer_ms": 2135.6225750641897,
+      "transmitted_code_context_bytes": 45416,
+      "code_tool_service_ms": 8664.631428895518,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.881920991465449,
+          "cross_site_transfer_bytes": 3055
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 11.748001910746098,
+          "cross_site_transfer_bytes": 406
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.739454921334982,
+          "cross_site_transfer_bytes": 3560
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.983867010101676,
+          "cross_site_transfer_bytes": 188
+        },
+        {
+          "step": 5,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 25.070534087717533,
+          "cross_site_transfer_bytes": 311
+        },
+        {
+          "step": 6,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 29.814626090228558,
+          "cross_site_transfer_bytes": 4805
+        },
+        {
+          "step": 7,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.801589021459222,
+          "cross_site_transfer_bytes": 1849
+        },
+        {
+          "step": 8,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.7215950433164835,
+          "cross_site_transfer_bytes": 1671
+        },
+        {
+          "step": 9,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 3.463899018242955,
+          "cross_site_transfer_bytes": 2940
+        },
+        {
+          "step": 10,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 1.8007659818977118,
+          "cross_site_transfer_bytes": 5022
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.327004913240671,
+          "cross_site_transfer_bytes": 2031
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.786226157099009,
+          "cross_site_transfer_bytes": 208
+        },
+        {
+          "step": 13,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 8.375089848414063,
+          "cross_site_transfer_bytes": 284
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.3348438553512096,
+          "cross_site_transfer_bytes": 7923
+        },
+        {
+          "step": 15,
+          "tool": "read_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2.1255009341984987,
+          "cross_site_transfer_bytes": 2393
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "edge",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "edge",
+          "success": true,
+          "service_ms": 10.257898131385446,
+          "cross_site_transfer_bytes": 200
+        },
+        {
+          "step": 18,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.714000038802624,
+          "cross_site_transfer_bytes": 809
+        },
+        {
+          "step": 19,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 6.9341829512268305,
+          "cross_site_transfer_bytes": 1619
+        },
+        {
+          "step": 20,
+          "tool": "apply_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 9.866300038993359,
+          "cross_site_transfer_bytes": 547
+        },
+        {
+          "step": 21,
+          "tool": "edit_file",
+          "site": "edge",
+          "success": true,
+          "service_ms": 4.7679508570581675,
+          "cross_site_transfer_bytes": 483
+        },
+        {
+          "step": 22,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 5729.736241046339,
+          "cross_site_transfer_bytes": 3589
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "edge",
+          "success": true,
+          "service_ms": 2761.134291999042,
+          "cross_site_transfer_bytes": 5358
+        },
+        {
+          "step": 24,
+          "tool": "submit_patch",
+          "site": "edge",
+          "success": true,
+          "service_ms": 13.24564404785633,
+          "cross_site_transfer_bytes": 1923
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h1-static-r3/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> read_file -> search_code -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> edit_file -> edit_file -> apply_patch -> edit_file -> run_targeted_test -> run_targeted_test -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h2-snapshot-r1",
+      "world_id": "H2_cloud",
+      "visibility": "snapshot",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "The patch has been submitted successfully.\n\n## Summary\n\n**Issue:** `identify_format(\"write\", Table, \"bububu.ecsv\", None, [], {})` raised `IndexError: tuple index out of range` from `astropy/io/fits/connect.py::is_fits`.\n\n**Root cause:** The FITS identifier's final fallback line was changed (in commit 2a0c5c6, which added support for passing HDU objects directly to `Table.read`) from `return None` to `return isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))`. That line is reached whenever:\n1. `fileobj` is `None`, **and**\n2. `filepath` is either `None` or a string that doesn't end in a FITS extension.\n\nIn case (2) with a non-FITS extension and no extra positional args (the HENDRICS scenario), `args` is empty and `args[0]` blew up. The `args[0]` lookup is only meaningful when the caller passed an HDU object as the sole input — which is precisely when both `filepath` and `fileobj` are `None`.\n\n**Fix** in `astropy/io/fits/connect.py`:\n\n```python\n    if fileobj is not None:\n        pos = fileobj.tell()\n        sig = fileobj.read(30)\n        fileobj.seek(pos)\n        return sig == FITS_SIGNATURE\n    elif filepath is not None:\n        if filepath.lower().endswith(\n            (\".fits\", \".fits.gz\", \".fit\", \".fit.gz\", \".fts\", \".fts.gz\")\n        ):\n            return True\n    elif args and isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU)):\n        return True\n\n    return False\n```\n\nThe `args[0]` check now only runs when there is no path/file object, it is guarded by `args and ...` so an empty args tuple can't index out of range, and the function returns an explicit `False` otherwise (restoring the pre-regression \"not FITS\" result for e.g. `\"bububu.ecsv\"`).\n\n**Note on testing:** both `run_targeted_test` and `run_full_test` failed at collection time with `UserWarning: Skipping collection of '.hypothesis' directory...` before any test ran — an environment/pytest-config artifact at the repo root, identical before and independent of this change, so it could not be used to validate the edit. The change was verified by reasoning through the call paths in `astropy/io/registry/base.py::identify_format` / `_get_valid_format` (where `path`/`fileobj` are both `None` for HDU-object inputs and `args[0]` is the input itself).",
+      "e2e_ms": 519417.4527899886,
+      "planner_latency_ms": 518235.6680300727,
+      "planner_tokens": 244162,
+      "remote_reasoning_calls": 16,
+      "tool_counts": {
+        "edit_file": 1,
+        "read_file": 9,
+        "run_full_test": 1,
+        "run_targeted_test": 1,
+        "search_code": 9,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 1,
+      "full_test_count": 1,
+      "retry_replanning_count": 5,
+      "cross_site_transfer_bytes": 0,
+      "cross_site_transfer_ms": 0.0,
+      "transmitted_code_context_bytes": 49983,
+      "code_tool_service_ms": 892.7494330273475,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.3827590262517333,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 13.28467600978911,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.294816000154242,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 7.560180005384609,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.3018170245923102,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9433689992874861,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 7,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 6.406579981558025,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 8,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.3675039915833622,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 9,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 2.946271008113399,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 10,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.4746979975607246,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8282159978989512,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.4579409984871745,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5720920162275434,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 14,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.2104479905683547,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 6.60792799317278,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 16,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.17664098413661122,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.915601005544886,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 424.7168799920473,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 21,
+          "tool": "run_full_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 412.61518400278874,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 22,
+          "tool": "submit_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 5.685832002200186,
+          "cross_site_transfer_bytes": 0
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h2-snapshot-r1/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> search_code -> search_code -> edit_file -> run_targeted_test -> run_full_test -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h2-snapshot-r2",
+      "world_id": "H2_cloud",
+      "visibility": "snapshot",
+      "success": false,
+      "submitted_patch": false,
+      "final_answer": "",
+      "e2e_ms": 1181139.4804180018,
+      "planner_latency_ms": 1178965.2752849506,
+      "planner_tokens": 584301,
+      "remote_reasoning_calls": 30,
+      "tool_counts": {
+        "apply_patch": 1,
+        "edit_file": 12,
+        "read_file": 10,
+        "run_full_test": 1,
+        "run_targeted_test": 3,
+        "search_code": 10
+      },
+      "targeted_test_count": 3,
+      "full_test_count": 1,
+      "retry_replanning_count": 14,
+      "cross_site_transfer_bytes": 0,
+      "cross_site_transfer_ms": 0.0,
+      "transmitted_code_context_bytes": 55796,
+      "code_tool_service_ms": 1783.5633510258049,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.37988400436006486,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 22.06516297883354,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.47550100134685636,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 6.140739016700536,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 5,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 16.767727996921167,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.28696900699287653,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.10963701060973108,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.345417993841693,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 9,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 5.971784994471818,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.230905993608758,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 11,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 9.505636990070343,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 12,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5450379976537079,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5230839888099581,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.45633400441147387,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.388642002595589,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 16,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.4045779933221638,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8846890123095363,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.7439160253852606,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 21,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 22,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.42122899321839213,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 23,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.24589998065494,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 24,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 415.65484600141644,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 25,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 423.79894899204373,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 26,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8070510230027139,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 27,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.788764985278249,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 28,
+          "tool": "run_full_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 433.50813700817525,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 29,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.7205839792732149,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 30,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.6304040143731982,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 31,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.34749601036310196,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 32,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 422.72439898806624,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 33,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9321770048700273,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 34,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5294310103636235,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 35,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.2869910094887018,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 36,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9413440129719675,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 37,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        }
+      ],
+      "patch_path": null,
+      "official_resolved": false,
+      "error_type": "MaxTurnsExceeded",
+      "error": "Max turns (30) exceeded",
+      "workflow_signature": "read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> edit_file -> edit_file -> read_file -> edit_file -> edit_file -> run_targeted_test -> run_targeted_test -> edit_file -> apply_patch -> run_full_test -> edit_file -> edit_file -> edit_file -> run_targeted_test -> edit_file -> edit_file -> edit_file -> edit_file -> read_file"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h2-snapshot-r3",
+      "world_id": "H2_cloud",
+      "visibility": "snapshot",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "The patch has been submitted. Final state of the fix:\n\n**Root cause** — Commit `2a0c5c6f` changed `is_fits` in `astropy/io/fits/connect.py` so that a path *without* a FITS extension fell through to `isinstance(args[0], ...)`. When the registry calls identifiers via `identify_format(origin, path, fileobj, *args)` with no extra positional args (the documented API used by HENDRICS and by astropy's own `_get_valid_format`), `args` is empty → `IndexError: tuple index out of range`.\n\n**Changes (3 files):**\n\n1. `astropy/io/fits/connect.py` — `is_fits` now branches exclusively:\n   - `fileobj` given → check the FITS signature.\n   - `filepath` given → return the extension test result directly (no fall-through); handles `str`, `os.PathLike`, and `bytes` paths via `os.fspath` + surrogateescape decoding.\n   - neither given, but `args` non-empty → `isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))`, preserving the HDU-detection feature the regressing commit intended.\n   - otherwise → `False`.\n\n2. `astropy/io/fits/tests/test_connect.py` — new `test_is_fits_identifier` covering the issue reproducer (`identify_format(\"write\", Table, \"bububu.ecsv\", None, [], {})`), `Path`/`bytes` paths, `.fits.gz` variants, HDU args, and the empty-args case that previously raised.\n\n3. `docs/changes/io.fits/14309.bugfix.rst` — changelog entry.\n\n**Verification caveat:** the workspace's test harness could not run — both targeted and full runs abort during collection with `UserWarning: Skipping collection of '.hypothesis' directory` caused by a pre-existing stray `.hypothesis` directory in the repo root interacting with `norecursedirs`. This failure is identical before and after my edits and occurs before any test executes, so the fix was validated by inspection against the reproducer and every call path in `astropy/io/registry/core.py` (`read`/`write` set `path` and/or `fileobj`, and pass HDUs positionally) plus the `CCDData` identifier registration in `astropy/nddata/ccddata.py`.",
+      "e2e_ms": 1278730.5305050104,
+      "planner_latency_ms": 1277038.2852859912,
+      "planner_tokens": 405834,
+      "remote_reasoning_calls": 26,
+      "tool_counts": {
+        "apply_patch": 3,
+        "edit_file": 9,
+        "read_file": 10,
+        "run_full_test": 1,
+        "run_targeted_test": 2,
+        "search_code": 9,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 2,
+      "full_test_count": 1,
+      "retry_replanning_count": 7,
+      "cross_site_transfer_bytes": 0,
+      "cross_site_transfer_ms": 0.0,
+      "transmitted_code_context_bytes": 33764,
+      "code_tool_service_ms": 1350.6893689918797,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.4360619932413101,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 14.403940993361175,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 3,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.001919005531818,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 10.572402010438964,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5785000103060156,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5952339852228761,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 7,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.592641984345391,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 2.7664080262184143,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 9,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 11.329119006404653,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 10,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.4515520015265793,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.4492780028376728,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.6234870203770697,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 13,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9077159920707345,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.2698320022318512,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.86438098596409,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 16,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.4273319791536778,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9793600183911622,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.496445995755494,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8782899822108448,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 21,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.0467869869899005,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 22,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.229112015105784,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 416.6175060090609,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 24,
+          "tool": "run_full_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 437.329365988262,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 25,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 1.5574769931845367,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 26,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5663989868480712,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 27,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 409.5312940189615,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 28,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.0255439847242087,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 29,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.4392389934509993,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 30,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 31,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9625359962228686,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 32,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8395790064241737,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 33,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 34,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9927890205290169,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 35,
+          "tool": "submit_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.927839996526018,
+          "cross_site_transfer_bytes": 0
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h2-snapshot-r3/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> edit_file -> read_file -> search_code -> read_file -> edit_file -> search_code -> read_file -> edit_file -> edit_file -> apply_patch -> run_targeted_test -> run_full_test -> apply_patch -> edit_file -> run_targeted_test -> edit_file -> apply_patch -> read_file -> edit_file -> edit_file -> read_file -> edit_file -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h2-static-r1",
+      "world_id": "H2_cloud",
+      "visibility": "static",
+      "success": true,
+      "submitted_patch": true,
+      "final_answer": "The fix has been submitted.\n\n**Root cause:** In `astropy/io/fits/connect.py`, the `is_fits` identifier (registered for both `Table` and `CCDData`) ended with an unconditional `args[0]` access:\n\n```python\nreturn isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))\n```\n\nThat line was reached whenever the caller supplied no file object with the FITS signature and no FITS-extension path. `identify_format` calls identifiers as `identifier(origin, path, fileobj, *args, **kwargs)`, so with `args=()` (as when called directly, or when writing to e.g. `\"bububu.ecsv\"`) this raised `IndexError: tuple index out of range` instead of simply reporting \"not FITS\".\n\n**Change:** the HDU check is now guarded so an empty `args` tuple yields `False`, restoring the pre-regression behavior of returning a falsy value for non-FITS names, while still detecting HDU objects passed through by `read`/`write`. The path branch was also made robust to path-like objects via `str(filepath)`.\n\n**Validation:** `astropy/io/fits/tests/test_connect.py` (141 passed), `astropy/io/registry/tests` (231 passed), and new regression tests covering the exact issue snippet plus HDU-argument behavior (4 passed). Remaining full-suite collection errors are environmental/pre-existing (a stray `.hypothesis` directory created by the harness run, and pytest-version deprecation errors in `convolution`/`coordinates` collection), unrelated to this change.",
+      "e2e_ms": 988778.3234069939,
+      "planner_latency_ms": 970076.9894149562,
+      "planner_tokens": 581225,
+      "remote_reasoning_calls": 28,
+      "tool_counts": {
+        "apply_patch": 4,
+        "edit_file": 2,
+        "read_file": 9,
+        "run_full_test": 1,
+        "run_targeted_test": 10,
+        "search_code": 10,
+        "submit_patch": 1
+      },
+      "targeted_test_count": 10,
+      "full_test_count": 1,
+      "retry_replanning_count": 13,
+      "cross_site_transfer_bytes": 0,
+      "cross_site_transfer_ms": 0.0,
+      "transmitted_code_context_bytes": 60788,
+      "code_tool_service_ms": 19431.059294962324,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.7894480077084154,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 8.333204023074359,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 3,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.935620003379881,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.2886359840631485,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.49494398990646005,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5918760143686086,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.40288097807206213,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.751939977519214,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 9,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.4301709996070713,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 10,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.2552429980132729,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 11,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 9.534695011097938,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.6894470104016364,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 13,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.3316480142530054,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.2532130165491253,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 22.61283900588751,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 26.513989985687658,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 3.019391995621845,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.4452860050369054,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 21,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1330.5872159835417,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 22,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 782.8194580215495,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 23,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1462.2333999723196,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 24,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 25,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 1.6770840156823397,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 26,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.4438629993237555,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 27,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 393.9491769997403,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 28,
+          "tool": "run_full_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 12401.013805996627,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 29,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 416.2539769895375,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 30,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.5014759846962988,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 31,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.462039010832086,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 32,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 435.3309879952576,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 33,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 856.9990559772123,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 34,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 413.8251649856102,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 35,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 413.2149310025852,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 36,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 415.18122801790014,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 37,
+          "tool": "submit_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 5.891957989661023,
+          "cross_site_transfer_bytes": 0
+        }
+      ],
+      "patch_path": "/home/super/infra-aware-mas-real/runs/semantic_switch/astropy__astropy-14309/formal-h2-static-r1/model.patch",
+      "official_resolved": true,
+      "error_type": null,
+      "error": null,
+      "workflow_signature": "read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> read_file -> search_code -> read_file -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> search_code -> search_code -> search_code -> apply_patch -> edit_file -> run_targeted_test -> run_targeted_test -> run_targeted_test -> read_file -> apply_patch -> apply_patch -> run_targeted_test -> run_full_test -> run_targeted_test -> edit_file -> apply_patch -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> run_targeted_test -> submit_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h2-static-r2",
+      "world_id": "H2_cloud",
+      "visibility": "static",
+      "success": false,
+      "submitted_patch": false,
+      "final_answer": "",
+      "e2e_ms": 1515052.601,
+      "planner_latency_ms": 1513141.8247651018,
+      "planner_tokens": 590635,
+      "remote_reasoning_calls": 30,
+      "tool_counts": {
+        "apply_patch": 4,
+        "edit_file": 13,
+        "read_file": 11,
+        "run_full_test": 1,
+        "run_targeted_test": 2,
+        "search_code": 8
+      },
+      "targeted_test_count": 2,
+      "full_test_count": 1,
+      "retry_replanning_count": 13,
+      "cross_site_transfer_bytes": 0,
+      "cross_site_transfer_ms": 0.0,
+      "transmitted_code_context_bytes": 49584,
+      "code_tool_service_ms": 1402.2336250927765,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.32086201827041805,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 15.683003002777696,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.35832999856211245,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 9.829796996200457,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.3615700008813292,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 6,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 7.782260014209896,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.30183300259523094,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 9.161117020994425,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 9,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.38258402491919696,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 3.035300993360579,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.19931100541725755,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 12,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.021703003672883,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 13,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 6.541587004903704,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.642983999568969,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 15,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.35907700657844543,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 23.66841200273484,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.2758049997501075,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 439.0748539881315,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 21,
+          "tool": "run_full_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 415.7916260010097,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 22,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 438.2974010077305,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 23,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 5.515853990800679,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 24,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 2.2442009940277785,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 25,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8482970006298274,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 26,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.4021319802850485,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 27,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.2722969986498356,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 28,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.12275400897488,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 29,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.7848120003473014,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 30,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.5036210059188306,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 31,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 32,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8582150039728731,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 33,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.46921800822019577,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 34,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.49469800433143973,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 35,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.8019120141398162,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 36,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 2.6180960121564567,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 37,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.3279689990449697,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 38,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0.45555399265140295,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 39,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.424577986355871,
+          "cross_site_transfer_bytes": 0
+        }
+      ],
+      "patch_path": null,
+      "official_resolved": false,
+      "error_type": "MaxTurnsExceeded",
+      "error": "Max turns (30) exceeded",
+      "workflow_signature": "read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> read_file -> search_code -> search_code -> read_file -> read_file -> search_code -> read_file -> read_file -> edit_file -> run_targeted_test -> run_full_test -> run_targeted_test -> apply_patch -> apply_patch -> edit_file -> edit_file -> edit_file -> edit_file -> edit_file -> edit_file -> read_file -> edit_file -> edit_file -> edit_file -> edit_file -> apply_patch -> edit_file -> edit_file -> apply_patch"
+    },
+    {
+      "task_id": "astropy__astropy-14309",
+      "run_id": "formal-h2-static-r3",
+      "world_id": "H2_cloud",
+      "visibility": "static",
+      "success": false,
+      "submitted_patch": false,
+      "final_answer": "",
+      "e2e_ms": 1552832.2359189915,
+      "planner_latency_ms": 1550623.063246021,
+      "planner_tokens": 571013,
+      "remote_reasoning_calls": 30,
+      "tool_counts": {
+        "apply_patch": 3,
+        "edit_file": 11,
+        "read_file": 10,
+        "run_full_test": 1,
+        "run_targeted_test": 3,
+        "search_code": 9
+      },
+      "targeted_test_count": 3,
+      "full_test_count": 1,
+      "retry_replanning_count": 10,
+      "cross_site_transfer_bytes": 0,
+      "cross_site_transfer_ms": 0.0,
+      "transmitted_code_context_bytes": 46542,
+      "code_tool_service_ms": 1734.3683290237095,
+      "realized_workflow": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.0679929982870817,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 2,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 12.116238009184599,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.312932999804616,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 4,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.495458997553214,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 5,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.32068899599835277,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 6,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.3570130211301148,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 7,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.7210990006569773,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 8,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 10.696293989894912,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 9,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 5.458508006995544,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 10,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.545248986687511,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 11,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.48404300468973815,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 12,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.36996902781538665,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 13,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 2.7067929913755506,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 14,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 15,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.050658026244491,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 16,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 17,
+          "tool": "search_code",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 5.854705988895148,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 18,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.6876670231577009,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 19,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.7200720137916505,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 20,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.0631399927660823,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 21,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 415.6244679761585,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 22,
+          "tool": "run_full_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 414.03742000693455,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 23,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 24,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.6948790105525404,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 25,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.5356809997465461,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 26,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.0860840266104788,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 27,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 1.1433780018705875,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 28,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 2.131284010829404,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 29,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 4.967945977114141,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 30,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9914669790305197,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 31,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.6769280007574707,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 32,
+          "tool": "apply_patch",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 1.94285498582758,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 33,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 420.77437599073164,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 34,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.6716549978591502,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 35,
+          "tool": "run_targeted_test",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 412.1108719846234,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 36,
+          "tool": "edit_file",
+          "site": "cloud",
+          "success": true,
+          "service_ms": 0.9505130001343787,
+          "cross_site_transfer_bytes": 0
+        },
+        {
+          "step": 37,
+          "tool": "read_file",
+          "site": "cloud",
+          "success": false,
+          "service_ms": 0,
+          "cross_site_transfer_bytes": 0
+        }
+      ],
+      "patch_path": null,
+      "official_resolved": false,
+      "error_type": "MaxTurnsExceeded",
+      "error": "Max turns (30) exceeded",
+      "workflow_signature": "read_file -> search_code -> read_file -> search_code -> read_file -> read_file -> read_file -> search_code -> search_code -> search_code -> read_file -> read_file -> search_code -> read_file -> search_code -> search_code -> search_code -> edit_file -> edit_file -> edit_file -> run_targeted_test -> run_full_test -> read_file -> edit_file -> edit_file -> edit_file -> edit_file -> apply_patch -> apply_patch -> edit_file -> edit_file -> apply_patch -> run_targeted_test -> edit_file -> run_targeted_test -> edit_file -> read_file"
+    }
+  ],
+  "questions": {
+    "G_snapshot_H1_not_equal_G_snapshot_H2": true,
+    "snapshot_structural_profiles": {
+      "H1_edge": {
+        "median_remote_reasoning_calls": 19.0,
+        "median_targeted_tests": 4.0,
+        "median_full_tests": 1.0,
+        "median_retry_replanning": 6.0,
+        "apply_patch": 1.0,
+        "edit_file": 3.0,
+        "read_file": 12.0,
+        "run_full_test": 1.0,
+        "run_targeted_test": 4.0,
+        "search_code": 7.0,
+        "submit_patch": 1.0
+      },
+      "H2_cloud": {
+        "median_remote_reasoning_calls": 26.0,
+        "median_targeted_tests": 2.0,
+        "median_full_tests": 1.0,
+        "median_retry_replanning": 7.0,
+        "apply_patch": 1.0,
+        "edit_file": 9.0,
+        "read_file": 10.0,
+        "run_full_test": 1.0,
+        "run_targeted_test": 2.0,
+        "search_code": 9.0,
+        "submit_patch": 1.0
+      }
+    },
+    "calibrated_direction": {
+      "H1_snapshot_median_search_plus_read": 19.0,
+      "H2_snapshot_median_search_plus_read": 19.0,
+      "H1_snapshot_median_context_bytes": 52651.0,
+      "H2_snapshot_median_context_bytes": 49983.0,
+      "calibrated_direction_supported": false,
+      "interpretation": "The snapshot workflows differ structurally, but the expected clean shift from more edge-local preprocessing in H1 to less preprocessing in H2 is not supported: median search+read counts are equal. H2 transmits slightly less code context but uses more reasoning and edit calls."
+    },
+    "C_snapshot_lower_than_C_static_without_correctness_drop": {
+      "H1_edge": {
+        "correctness_not_lower": true,
+        "snapshot_lower_e2e": true,
+        "claim_supported": true,
+        "static_median_e2e_ms": 839853.2747869904,
+        "snapshot_median_e2e_ms": 559749.9770839931,
+        "relative_e2e_change": -0.3335145627360196
+      },
+      "H2_cloud": {
+        "correctness_not_lower": true,
+        "snapshot_lower_e2e": true,
+        "claim_supported": true,
+        "static_median_e2e_ms": 1515052.601,
+        "snapshot_median_e2e_ms": 1181139.4804180018,
+        "relative_e2e_change": -0.22039704783952796
+      }
+    }
+  },
+  "leakage": {
+    "reference_workflow_leakage_count": 0,
+    "verified_patch_leakage_count": 0,
+    "ground_truth_leakage_count": 0,
+    "evaluator_configuration_leakage_count": 0,
+    "planner_visible_sources": [
+      "frozen oracle-free task instruction",
+      "world-invariant static execution context",
+      "raw dynamic infrastructure snapshot in snapshot runs only",
+      "live generic tool results"
+    ],
+    "hits": []
+  },
+  "controls": {
+    "formal_run_ids_only": true,
+    "static_context_identical_across_worlds": true,
+    "snapshot_context_present_only_in_snapshot_runs": true,
+    "same_scheduler": true,
+    "same_planner_and_budgets": true
+  }
+}

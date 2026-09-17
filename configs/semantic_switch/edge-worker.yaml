@@ -1,0 +1,17 @@
+worker_id: edge-code
+site: edge
+host: 0.0.0.0
+port: 9011
+repository_root: /mnt/ssd/infra-aware-mas/data/swebench/astropy__astropy-14309
+base_commit: cdb66059a2feb44ee49021874605ba90801f9986
+targeted_test_prefix:
+  - /mnt/ssd/infra-aware-mas/data/swebench/envs/astropy-14309/bin/python
+  - -m
+  - pytest
+  - -q
+full_test_command:
+  - /mnt/ssd/infra-aware-mas/data/swebench/envs/astropy-14309/bin/python
+  - -m
+  - pytest
+  - -q
+max_output_chars: 8000

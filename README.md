@@ -238,3 +238,39 @@ uv run infra-mas-bench calibrate \
 
 The remote Worker reads `DASHSCOPE_API_KEY`. It is excluded from the normal pilot Planner model
 catalog and is used only by hidden calibration references.
+
+## Open-ended SWE-bench semantic-switch experiment
+
+The `code_tasks` runtime connects an admitted SWE-bench case to the same Planner model interface
+without exposing a candidate workflow or verified patch. It offers only generic repository tools:
+code search/read, exact edit or patch application, targeted/full tests, and final patch submission.
+The deterministic repository-locality scheduler binds every tool call to the Worker holding the
+materialized repository. `static` supplies world-invariant execution semantics; `snapshot` appends
+only the current repository location, measured artifact size, and network facts.
+
+Start one code Worker at each materialized repository, then run one arm:
+
+```bash
+uv run infra-mas-code worker configs/semantic_switch/edge-worker.yaml
+uv run infra-mas-code worker configs/semantic_switch/cloud-worker.yaml
+
+uv run infra-mas-code run \
+  --config configs/semantic_switch/astropy_14309.yaml \
+  --world H1_edge \
+  --visibility snapshot \
+  --run-id formal-h1-snapshot-r1
+```
+
+Evaluate a submitted patch with the official SWE-bench environment and aggregate only run IDs
+beginning with `formal-`:
+
+```bash
+uv run infra-mas-code evaluate \
+  --run-directory runs/semantic_switch/astropy__astropy-14309/formal-h1-snapshot-r1 \
+  --python /path/to/swebench-env/bin/python \
+  --workdir /path/to/infra-bench
+
+uv run infra-mas-code report \
+  --runs-root runs/semantic_switch/astropy__astropy-14309 \
+  --output runs/semantic_switch/astropy__astropy-14309
+```

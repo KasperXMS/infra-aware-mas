@@ -18,6 +18,7 @@ infra-mas-run = "infra_mas.cli:main"
 infra-mas-pilot = "infra_mas.pilot_cli:main"
 infra-mas-bench = "infra_mas.bench_cli:main"
 infra-mas-worker = "infra_mas.worker.cli:main"
+infra-mas-code = "infra_mas.code_tasks.cli:main"
 
 [dependency-groups]
 dev = [

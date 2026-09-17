@@ -1,0 +1,43 @@
+schema_version: code-benchmark-v1
+task_id: astropy__astropy-14309
+benchmark: SWE-bench Verified
+base_commit: cdb66059a2feb44ee49021874605ba90801f9986
+admission_exports:
+  H1_edge: ../../../infra-bench/runs/task_admission/mas_exports/astropy__astropy-14309/world_1.json
+  H2_cloud: ../../../infra-bench/runs/task_admission/mas_exports/astropy__astropy-14309/world_2.json
+repository_artifact_id: repo://astropy/astropy@cdb66059a2feb44ee49021874605ba90801f9986
+repository_size_bytes: 85732111
+planner_site: cloud
+worlds:
+  H1_edge:
+    world_id: H1_edge
+    repository_artifact_id: repo://astropy/astropy@cdb66059a2feb44ee49021874605ba90801f9986
+    repository_site: edge
+    repository_size_bytes: 85732111
+    bandwidth_mbps: 1.0
+    rtt_ms: 50.0
+  H2_cloud:
+    world_id: H2_cloud
+    repository_artifact_id: repo://astropy/astropy@cdb66059a2feb44ee49021874605ba90801f9986
+    repository_site: cloud
+    repository_size_bytes: 85732111
+    bandwidth_mbps: 1.0
+    rtt_ms: 50.0
+executors:
+  - executor_id: edge-code
+    site: edge
+    endpoint: http://192.168.0.128:9011
+  - executor_id: cloud-code
+    site: cloud
+    endpoint: http://127.0.0.1:9012
+planner:
+  model: qwen3.8-max
+  api: chat_completions
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  api_key_env: DASHSCOPE_API_KEY
+  timeout_seconds: 900
+runs_root: ../../runs/semantic_switch/astropy__astropy-14309
+max_turns: 30
+planner_max_output_tokens: 4096
+max_exploration_calls: 16
+worker_timeout_seconds: 900

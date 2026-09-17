@@ -10,5 +10,11 @@ dist/
 *.egg-info/
 runs/*
 !runs/.gitkeep
+!runs/semantic_switch/
+runs/semantic_switch/*
+!runs/semantic_switch/astropy__astropy-14309/
+runs/semantic_switch/astropy__astropy-14309/*
+!runs/semantic_switch/astropy__astropy-14309/semantic_switch_report.json
+!runs/semantic_switch/astropy__astropy-14309/semantic_switch_report.md
 .runtime/
 data/

@@ -28,13 +28,13 @@ def create_planner_model(config: PlannerModelConfig) -> tuple[Model, AsyncOpenAI
     """Build a per-run SDK model and its explicitly managed OpenAI client."""
     api_key = "not-required"
     if config.api_key_env is not None:
-        api_key = os.getenv(config.api_key_env, "")
+        api_key = os.getenv(config.api_key_env, "").strip()
         if not api_key:
             raise ValueError(f"required environment variable {config.api_key_env!r} is not set")
 
     base_url = config.base_url
     if config.base_url_env is not None:
-        base_url = os.getenv(config.base_url_env, "")
+        base_url = os.getenv(config.base_url_env, "").strip()
         if not base_url:
             raise ValueError(
                 f"required environment variable {config.base_url_env!r} is not set"
