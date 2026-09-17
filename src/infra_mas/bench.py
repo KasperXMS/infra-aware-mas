@@ -9,11 +9,12 @@ from typing import Any, Literal, cast
 from urllib.parse import unquote, urlparse
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from infra_mas.core.resource import NetworkLink
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.experiment import BlindExperimentConfig, resolve_config_path, run_blind_experiment
+from infra_mas.operators import GENERAL_OPERATOR_REGISTRY, TaskInteractionSpec
 from infra_mas.planner.context import InfrastructureVisibility
 
 
@@ -29,20 +30,35 @@ class ArtifactBinding(BaseModel):
 class MASRunSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["mas-run-spec-v1"]
+    schema_version: Literal["mas-run-spec-v2"]
     case_id: str
     group_id: str
     task_id: str
     instruction: str
+    task_interaction: TaskInteractionSpec
     artifacts: list[ArtifactBinding]
     infra_world: dict[str, Any]
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def task_contract_matches_case(self) -> MASRunSpec:
+        if self.task_interaction.task_id != self.task_id:
+            raise ValueError("TaskInteractionSpec task_id does not match MAS run spec")
+        if self.task_interaction.objective != self.instruction:
+            raise ValueError("TaskInteractionSpec objective does not match instruction")
+        if {item.artifact_id for item in self.task_interaction.initial_artifacts} != {
+            item.artifact_id for item in self.artifacts
+        }:
+            raise ValueError("TaskInteractionSpec initial artifacts do not match bindings")
+        return self
 
 
 class RealizedAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     action_id: str
+    semantic_operator: str
+    tool: str | None = None
     parent_action_id: str | None = None
     model_id: str | None = None
     role: str | None = None
@@ -95,7 +111,9 @@ class MASExecutionResult(BaseModel):
 
 
 def load_mas_case(path: Path) -> MASRunSpec:
-    return MASRunSpec.model_validate_json(path.read_text(encoding="utf-8"))
+    spec = MASRunSpec.model_validate_json(path.read_text(encoding="utf-8"))
+    GENERAL_OPERATOR_REGISTRY.validate_task(spec.task_interaction)
+    return spec
 
 
 def _experiment_config_path(
@@ -235,6 +253,8 @@ def export_realized_workflow(trace_path: Path) -> RealizedWorkflow:
         outputs = [str(value) for value in end.get("output_artifacts", [])]
         action = RealizedAction(
             action_id=action_id,
+            semantic_operator=str(request.get("semantic_operator", "invoke_model")),
+            tool=str(request.get("tool")) if request.get("tool") else None,
             parent_action_id=request.get("parent_action_id"),
             model_id=request.get("model_id"),
             role=request.get("agent"),

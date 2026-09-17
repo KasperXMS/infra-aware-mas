@@ -27,6 +27,11 @@ class CodePlannerContext:
     submitted_patch: str | None = None
     _exploration_calls: int = field(default=0, init=False, repr=False)
     _action_counter: int = field(default=0, init=False, repr=False)
+    _repository_version: int = field(default=0, init=False, repr=False)
+    _latest_reasoning_artifact: str | None = field(default=None, init=False, repr=False)
+    _pending_observations: list[str] = field(
+        default_factory=lambda: [], init=False, repr=False
+    )
     _action_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
     @property
@@ -43,6 +48,9 @@ class CodePlannerContext:
         self, tool: CodeToolName, payload: dict[str, object]
     ) -> str:
         action_id = await self.next_action_id("code-tool")
+        input_artifacts = [f"{self.world.repository_artifact_id}@v{self._repository_version}"]
+        if self._latest_reasoning_artifact is not None:
+            input_artifacts.append(self._latest_reasoning_artifact)
         executor = self.scheduler.select(self.world)
         sanitized = {
             key: (f"<{len(str(value).encode('utf-8'))} bytes>" if key == "patch" else value)
@@ -53,6 +61,8 @@ class CodePlannerContext:
             action_id=action_id,
             parent_action_id=self.coordinator_action_id,
             tool=tool,
+            semantic_operator=tool,
+            input_artifacts=input_artifacts,
             arguments=sanitized,
         )
         await self.trace.record(
@@ -60,6 +70,8 @@ class CodePlannerContext:
             action_id=action_id,
             parent_action_id=self.coordinator_action_id,
             tool=tool,
+            semantic_operator=tool,
+            input_artifacts=input_artifacts,
             executor_id=executor.executor_id,
             site=executor.site,
         )
@@ -76,11 +88,16 @@ class CodePlannerContext:
                     service_ms=0,
                 )
                 planner_text = result.model_dump_json(exclude={"patch"})
+                observation = f"{action_id}/observation"
+                self._pending_observations.append(observation)
                 await self.trace.record(
                     "code_tool.end",
                     action_id=action_id,
                     parent_action_id=self.coordinator_action_id,
                     tool=tool,
+                    semantic_operator=tool,
+                    input_artifacts=input_artifacts,
+                    output_artifacts=[observation],
                     executor_id=executor.executor_id,
                     site=executor.site,
                     success=False,
@@ -105,6 +122,9 @@ class CodePlannerContext:
                 action_id=action_id,
                 parent_action_id=self.coordinator_action_id,
                 tool=tool,
+                semantic_operator=tool,
+                input_artifacts=input_artifacts,
+                output_artifacts=[f"{action_id}/observation"],
                 executor_id=executor.executor_id,
                 site=executor.site,
                 success=False,
@@ -117,6 +137,15 @@ class CodePlannerContext:
 
         if tool == "submit_patch" and result.success:
             self.submitted_patch = result.patch
+        output_artifacts = [f"{action_id}/observation"]
+        if result.success and tool in {"edit_file", "apply_patch"}:
+            self._repository_version += 1
+            output_artifacts.append(
+                f"{self.world.repository_artifact_id}@v{self._repository_version}"
+            )
+        if result.success and tool == "submit_patch":
+            output_artifacts.append(f"{action_id}/submitted_patch")
+        self._pending_observations.extend(output_artifacts)
         planner_payload = result.model_dump(exclude={"patch"}, mode="json")
         planner_text = json.dumps(planner_payload, ensure_ascii=False)
         cross_site = executor.site != self.planner_site
@@ -127,6 +156,9 @@ class CodePlannerContext:
             action_id=action_id,
             parent_action_id=self.coordinator_action_id,
             tool=tool,
+            semantic_operator=tool,
+            input_artifacts=input_artifacts,
+            output_artifacts=output_artifacts,
             executor_id=executor.executor_id,
             site=executor.site,
             success=result.success,
@@ -141,6 +173,14 @@ class CodePlannerContext:
             truncated=result.truncated,
         )
         return planner_text
+
+    def consume_observations(self) -> list[str]:
+        artifacts = list(self._pending_observations)
+        self._pending_observations.clear()
+        return artifacts
+
+    def record_reasoning_artifact(self, artifact_id: str) -> None:
+        self._latest_reasoning_artifact = artifact_id
 
     def render_static_context(self) -> str:
         executor_sites = ",".join(sorted({item.site for item in self.scheduler.list()}))

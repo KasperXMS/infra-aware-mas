@@ -245,8 +245,10 @@ async def test_manual_two_agent_runtime_workflow(tmp_path: Path) -> None:
         "model_id": "mock-llm",
         "capability": "reasoning",
         "task": "Answer from the evidence.",
-        "input_artifacts": [vision_result.output_artifacts[0].id],
-    }
+            "input_artifacts": [vision_result.output_artifacts[0].id],
+            "semantic_operator": "invoke_model",
+            "tool": "invoke_model",
+        }
     assert trace.config_path.exists()
     assert trace.result_path.exists()
 

@@ -85,6 +85,7 @@ async def execute_delegation(
         parent_action_id=context.coordinator_action_id,
         agent=agent,
         task=task,
+        semantic_operator="invoke_model",
         input_artifacts=input_artifact_ids,
     )
     inputs = [context.artifact_catalog.get(artifact_id) for artifact_id in input_artifact_ids]
@@ -127,6 +128,7 @@ async def execute_dynamic_invocation(
         role=role,
         instructions=instructions,
         task=task,
+        semantic_operator="invoke_model",
         input_artifacts=input_artifact_ids,
     )
     invocation = InvocationSpec(
@@ -164,6 +166,7 @@ async def inspect_artifact_text(context: PlannerContext, artifact_id: str) -> st
         action_id=action_id,
         parent_action_id=context.coordinator_action_id,
         artifact_id=artifact_id,
+        semantic_operator="read_artifact",
     )
     return await context.artifact_catalog.inspect_text(
         artifact_id,

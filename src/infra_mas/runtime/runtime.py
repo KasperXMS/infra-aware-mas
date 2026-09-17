@@ -111,6 +111,8 @@ class AgentRuntime:
             agent=invocation.role,
             model_id=invocation.model_id,
             capability=executor.capability,
+            semantic_operator="invoke_model",
+            tool="invoke_model",
             task=invocation.task,
             input_artifacts=[artifact.id for artifact in invocation.input_artifacts],
         )

@@ -16,6 +16,7 @@ from infra_mas.code_tasks.context import CodePlannerContext
 from infra_mas.code_tasks.coordinator import CodeTaskCoordinator
 from infra_mas.code_tasks.models import CodeExecutor, RepositoryWorld
 from infra_mas.code_tasks.scheduler import RepositoryLocalityScheduler
+from infra_mas.operators import CODE_OPERATOR_REGISTRY, TaskInteractionSpec
 from infra_mas.planner.context import InfrastructureVisibility
 from infra_mas.planner.model_factory import PlannerModelConfig, create_planner_model
 from infra_mas.tracing.recorder import TraceRecorder
@@ -72,6 +73,7 @@ class CodeRunResult(BaseModel):
     transmitted_code_context_bytes: int
     code_tool_service_ms: float
     realized_workflow: list[dict[str, object]]
+    realized_dependencies: list[tuple[str, str]] = []
     patch_path: str | None
     official_resolved: bool | None = None
     error_type: str | None = None
@@ -125,10 +127,19 @@ def load_admission_export(
         or cast(dict[str, object], contract).get("oracle_free") is not True
     ):
         raise ValueError("admission export is not marked oracle-free")
+    contract_data = cast(dict[str, object], contract)
+    if contract_data.get("admitted") is not True:
+        raise ValueError(
+            "not_realizable: benchmark case is not admitted for MAS Planner execution"
+        )
     task_data = cast(dict[str, object], task)
     infra_data = cast(dict[str, object], infrastructure)
     if task_data.get("task_id") != config.task_id:
         raise ValueError("admission export task ID does not match benchmark config")
+    interaction = TaskInteractionSpec.model_validate(task_data.get("interaction_spec"))
+    CODE_OPERATOR_REGISTRY.validate_task(interaction)
+    if interaction.task_id != config.task_id:
+        raise ValueError("TaskInteractionSpec task ID does not match benchmark config")
     if task_data.get("benchmark") != config.benchmark:
         raise ValueError("admission export benchmark does not match benchmark config")
     artifact_refs = task_data.get("artifact_refs")
@@ -173,17 +184,49 @@ def summarize_code_run(
     ]
     tool_events = [item for item in events if item.get("event_type") == "code_tool.end"]
     counts = Counter(str(item.get("tool")) for item in tool_events)
-    workflow = [
-        {
-            "step": index,
-            "tool": item.get("tool"),
-            "site": item.get("site"),
-            "success": item.get("success"),
-            "service_ms": item.get("service_ms", 0),
-            "cross_site_transfer_bytes": item.get("cross_site_transfer_bytes", 0),
-        }
-        for index, item in enumerate(tool_events, start=1)
-    ]
+    llm_starts = {
+        str(item["action_id"]): item
+        for item in events
+        if item.get("event_type") == "planner.llm.start"
+    }
+    semantic_events = [*tool_events, *llm_events]
+    semantic_events.sort(key=lambda item: str(item.get("timestamp", "")))
+    workflow: list[dict[str, object]] = []
+    producer_by_artifact: dict[str, str] = {}
+    dependencies: set[tuple[str, str]] = set()
+    for index, item in enumerate(semantic_events, start=1):
+        action_id = str(item.get("action_id"))
+        start = llm_starts.get(action_id, {})
+        input_artifacts = [
+            str(value)
+            for value in cast(
+                list[object],
+                item.get("input_artifacts", start.get("input_artifacts", [])),
+            )
+        ]
+        output_artifacts = [
+            str(value) for value in cast(list[object], item.get("output_artifacts", []))
+        ]
+        for artifact_id in input_artifacts:
+            producer = producer_by_artifact.get(artifact_id)
+            if producer is not None and producer != action_id:
+                dependencies.add((producer, action_id))
+        for artifact_id in output_artifacts:
+            producer_by_artifact[artifact_id] = action_id
+        workflow.append(
+            {
+                "step": index,
+                "action_id": action_id,
+                "tool": item.get("tool", "planner.llm"),
+                "semantic_operator": item.get("semantic_operator", "invoke_model"),
+                "input_artifacts": input_artifacts,
+                "output_artifacts": output_artifacts,
+                "site": item.get("site", "cloud"),
+                "success": item.get("success"),
+                "service_ms": item.get("service_ms", item.get("latency_ms", 0)),
+                "cross_site_transfer_bytes": item.get("cross_site_transfer_bytes", 0),
+            }
+        )
     result = CodeRunResult(
         task_id=task_id,
         run_id=run_directory.name,
@@ -211,6 +254,7 @@ def summarize_code_run(
         ),
         code_tool_service_ms=sum(_as_float(item.get("service_ms", 0)) for item in tool_events),
         realized_workflow=workflow,
+        realized_dependencies=sorted(dependencies),
         patch_path=str(patch_path) if patch_path is not None else None,
         error_type=type(error).__name__ if error is not None else None,
         error=str(error) if error is not None else None,

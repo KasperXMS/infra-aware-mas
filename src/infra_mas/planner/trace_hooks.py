@@ -44,6 +44,8 @@ class PlannerTraceHooks(RunHooks[PlannerContext]):
             action_id=action_id,
             parent_action_id=self._context.coordinator_action_id,
             turn=self._turn_count,
+            semantic_operator="invoke_model",
+            tool="planner.llm",
         )
         self._active = _ActiveCall(action_id, self._turn_count, perf_counter())
 
@@ -63,6 +65,8 @@ class PlannerTraceHooks(RunHooks[PlannerContext]):
             action_id=active.action_id,
             parent_action_id=self._context.coordinator_action_id,
             turn=active.turn,
+            semantic_operator="invoke_model",
+            tool="planner.llm",
             latency_ms=(perf_counter() - active.started_at) * 1000,
             token_usage={
                 "requests": response.usage.requests,
@@ -84,6 +88,8 @@ class PlannerTraceHooks(RunHooks[PlannerContext]):
             action_id=active.action_id,
             parent_action_id=self._context.coordinator_action_id,
             turn=active.turn,
+            semantic_operator="invoke_model",
+            tool="planner.llm",
             latency_ms=(perf_counter() - active.started_at) * 1000,
             token_usage=None,
             success=False,

@@ -8,6 +8,34 @@ from infra_mas.bench import (
     resolve_source_path,
     summarize_mas_run,
 )
+from infra_mas.operators import (
+    ExternalEvaluatorSpec,
+    InitialArtifactSpec,
+    ObservationSpec,
+    RuntimeVerifierSpec,
+    TaskInteractionSpec,
+)
+
+
+def _task_interaction() -> TaskInteractionSpec:
+    return TaskInteractionSpec(
+        task_id="task",
+        objective="inspect",
+        initial_artifacts=[
+            InitialArtifactSpec(artifact_id="img_01", kind="image", source_ref="one.jpg"),
+            InitialArtifactSpec(artifact_id="img_02", kind="image", source_ref="two.jpg"),
+        ],
+        operators=["invoke_model"],
+        observations=[
+            ObservationSpec(
+                observation_id="model_output",
+                produced_by=["invoke_model"],
+                description="Model output.",
+            )
+        ],
+        runtime_verifier=RuntimeVerifierSpec(level="none"),
+        external_evaluator=ExternalEvaluatorSpec(evaluator_id="hidden"),
+    )
 
 
 def test_realized_workflow_uses_artifact_dependencies_not_timestamp_order(
@@ -136,11 +164,12 @@ def test_summary_computes_cross_worker_alignment_and_grouping(tmp_path: Path) ->
         json.dumps({"answer": "img_01", "e2e_ms": 20.0}), encoding="utf-8"
     )
     spec = MASRunSpec(
-        schema_version="mas-run-spec-v1",
+        schema_version="mas-run-spec-v2",
         case_id="case",
         group_id="group",
         task_id="task",
         instruction="inspect",
+        task_interaction=_task_interaction(),
         artifacts=[
             ArtifactBinding(
                 artifact_id="img_01", source_ref="one.jpg", site_id="A4"
@@ -240,11 +269,12 @@ def test_summary_separates_initial_coverage_from_later_refinement(
         encoding="utf-8",
     )
     spec = MASRunSpec(
-        schema_version="mas-run-spec-v1",
+        schema_version="mas-run-spec-v2",
         case_id="case",
         group_id="group",
         task_id="task",
         instruction="inspect",
+        task_interaction=_task_interaction(),
         artifacts=[
             ArtifactBinding(artifact_id="img_01", source_ref="one.jpg", site_id="A4"),
             ArtifactBinding(artifact_id="img_02", source_ref="two.jpg", site_id="A5"),

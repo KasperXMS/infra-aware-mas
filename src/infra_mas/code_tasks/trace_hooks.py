@@ -42,6 +42,9 @@ class CodePlannerTraceHooks(RunHooks[CodePlannerContext]):
             action_id=action_id,
             parent_action_id=self._context.coordinator_action_id,
             turn=self._turn_count,
+            semantic_operator="invoke_model",
+            tool="planner.llm",
+            input_artifacts=self._context.consume_observations(),
         )
 
     async def on_llm_end(
@@ -60,6 +63,9 @@ class CodePlannerTraceHooks(RunHooks[CodePlannerContext]):
             action_id=active.action_id,
             parent_action_id=self._context.coordinator_action_id,
             turn=active.turn,
+            semantic_operator="invoke_model",
+            tool="planner.llm",
+            output_artifacts=[f"{active.action_id}/reasoning"],
             latency_ms=(perf_counter() - active.started_at) * 1000,
             token_usage={
                 "requests": response.usage.requests,
@@ -69,6 +75,7 @@ class CodePlannerTraceHooks(RunHooks[CodePlannerContext]):
             },
             success=True,
         )
+        self._context.record_reasoning_artifact(f"{active.action_id}/reasoning")
 
     async def finish_pending(self, error: Exception) -> None:
         active = self._active
@@ -80,6 +87,9 @@ class CodePlannerTraceHooks(RunHooks[CodePlannerContext]):
             action_id=active.action_id,
             parent_action_id=self._context.coordinator_action_id,
             turn=active.turn,
+            semantic_operator="invoke_model",
+            tool="planner.llm",
+            output_artifacts=[],
             latency_ms=(perf_counter() - active.started_at) * 1000,
             token_usage=None,
             success=False,

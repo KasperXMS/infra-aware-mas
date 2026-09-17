@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 import httpx
+import pytest
 
 from infra_mas.code_tasks.client import CodeWorkerClient
 from infra_mas.code_tasks.context import CodePlannerContext
@@ -160,13 +161,13 @@ def test_static_context_is_world_invariant_and_snapshot_adds_only_raw_facts(
         assert forbidden not in instructions
 
 
-def test_frozen_admission_exports_match_materialized_config() -> None:
+def test_invalidated_admission_exports_cannot_run() -> None:
     config_path = Path("configs/semantic_switch/astropy_14309.yaml").resolve()
     config = CodeBenchmarkConfig.from_yaml(config_path)
-    instruction_h1, _ = load_admission_export(config, config_path, "H1_edge")
-    instruction_h2, _ = load_admission_export(config, config_path, "H2_cloud")
-    assert instruction_h1 == instruction_h2
-    assert "identify_format" in instruction_h1
+    with pytest.raises(ValueError, match="not_realizable"):
+        load_admission_export(config, config_path, "H1_edge")
+    with pytest.raises(ValueError, match="not_realizable"):
+        load_admission_export(config, config_path, "H2_cloud")
     assert config.worlds["H1_edge"].model_dump(exclude={"world_id", "repository_site"}) == (
         config.worlds["H2_cloud"].model_dump(exclude={"world_id", "repository_site"})
     )
