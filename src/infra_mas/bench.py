@@ -87,6 +87,10 @@ class MASExecutionResult(BaseModel):
     site_aligned_multimodal_invocations: int = Field(default=0, ge=0)
     site_alignment_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     artifact_grouping: list[list[str]] = []
+    initial_artifact_grouping: list[list[str]] = []
+    later_refinement_invocation_count: int = Field(default=0, ge=0)
+    later_refinement_cross_worker_bytes: int = Field(default=0, ge=0)
+    later_refinement_service_ms: float = Field(default=0.0, ge=0)
     realized_workflow: RealizedWorkflow
 
 
@@ -355,6 +359,20 @@ def summarize_mas_run(
         ]
         for action in multimodal_actions
     ]
+    initially_covered: set[str] = set()
+    initial_action_count = 0
+    for action in multimodal_actions:
+        initially_covered.update(
+            artifact_id
+            for artifact_id in action.input_artifacts
+            if artifact_id in raw_artifact_ids
+        )
+        initial_action_count += 1
+        if initially_covered == raw_artifact_ids:
+            break
+    later_actions = multimodal_actions[initial_action_count:]
+    later_action_ids = {action.action_id for action in later_actions}
+    initial_artifact_grouping = artifact_grouping[:initial_action_count]
     summary = MASExecutionResult(
         case_id=spec.case_id,
         group_id=spec.group_id,
@@ -382,6 +400,18 @@ def summarize_mas_run(
             len(aligned_actions) / len(multimodal_actions) if multimodal_actions else 0.0
         ),
         artifact_grouping=artifact_grouping,
+        initial_artifact_grouping=initial_artifact_grouping,
+        later_refinement_invocation_count=len(later_actions),
+        later_refinement_cross_worker_bytes=sum(
+            int(event.get("bytes_transferred", 0))
+            for event in cross_worker_transfers
+            if str(event.get("action_id")) in later_action_ids
+        ),
+        later_refinement_service_ms=sum(
+            float(event.get("service_ms", 0))
+            for event in executions
+            if str(event.get("action_id")) in later_action_ids
+        ),
         realized_workflow=workflow,
     )
     (run_directory / "mas_result.json").write_text(

@@ -10,6 +10,7 @@ from typing import cast
 from infra_mas.bench import run_benchmark_case
 from infra_mas.calibration import run_calibration_sweep
 from infra_mas.planner.context import InfrastructureVisibility
+from infra_mas.semantic_switch import write_v1_semantic_switch_report
 from infra_mas.stability import write_v1_repeat_report
 
 
@@ -44,6 +45,17 @@ def build_stability_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_semantic_switch_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="infra-mas-bench summarize-semantic-switch",
+        description="Aggregate the paired-world V1 Planner experiment",
+    )
+    parser.add_argument("--run", type=Path, action="append", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--expected-image-id", default="img_06")
+    return parser
+
+
 def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "calibrate":
         args = build_calibration_parser().parse_args(sys.argv[2:])
@@ -55,6 +67,15 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "summarize-v1":
         args = build_stability_parser().parse_args(sys.argv[2:])
         payload = write_v1_repeat_report(
+            args.run, args.output, expected_image_id=args.expected_image_id
+        )
+        rendered = json.dumps(payload, ensure_ascii=False, indent=2)
+        encoding = sys.stdout.encoding or "utf-8"
+        print(rendered.encode(encoding, errors="backslashreplace").decode(encoding))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "summarize-semantic-switch":
+        args = build_semantic_switch_parser().parse_args(sys.argv[2:])
+        payload = write_v1_semantic_switch_report(
             args.run, args.output, expected_image_id=args.expected_image_id
         )
         rendered = json.dumps(payload, ensure_ascii=False, indent=2)

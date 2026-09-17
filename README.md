@@ -222,3 +222,19 @@ uv run infra-mas-bench calibrate \
 Calibration creates no Coordinator or Planner context. Its `centralized` and `distributed_3x2`
 reference IDs exist only in calibration trace metadata and reports. Admission requires correct
 explicit answers, opposite median-E2E winners, and at least 20% winner margin in both worlds.
+
+The V2 search also includes the hidden `distributed_6x1` reference. Its six one-image VLM calls
+feed one real `remote-llm` synthesis invocation through normal artifact-transfer and tracing paths.
+Start the calibration-only remote Worker, then run the V2 sweep:
+
+```bash
+uv run infra-mas-worker \
+  --config configs/pilot/workers/coordinator-remote.yaml
+
+uv run infra-mas-bench calibrate \
+  --sweep configs/pilot/sweeps/replica_locality_v2.yaml \
+  --output runs/calibration
+```
+
+The remote Worker reads `DASHSCOPE_API_KEY`. It is excluded from the normal pilot Planner model
+catalog and is used only by hidden calibration references.

@@ -1,0 +1,39 @@
+workers:
+  a4:
+    endpoint: http://192.168.0.104:9001
+    site: A4
+  a5:
+    endpoint: http://192.168.0.105:9001
+    site: A5
+  a28:
+    endpoint: http://192.168.0.128:9001
+    site: A28
+  coordinator-remote:
+    endpoint: http://127.0.0.1:9002
+    site: REMOTE
+
+executors:
+  a4-vlm:
+    worker_id: a4
+    capability: visual_understanding
+    model_id: edge-vlm
+    device: agx-orin
+    site: A4
+  a5-vlm:
+    worker_id: a5
+    capability: visual_understanding
+    model_id: edge-vlm
+    device: agx-orin
+    site: A5
+  a28-vlm:
+    worker_id: a28
+    capability: visual_understanding
+    model_id: edge-vlm
+    device: agx-orin
+    site: A28
+  coordinator-remote-llm:
+    worker_id: coordinator-remote
+    capability: reasoning
+    model_id: remote-llm
+    device: remote-api
+    site: REMOTE

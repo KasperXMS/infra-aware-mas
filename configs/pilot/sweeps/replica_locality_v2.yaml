@@ -1,0 +1,39 @@
+experiment_config: ../planner-calibration.yaml
+task: >-
+  Find the image that contains both a blue airplane and a truck.
+  Return the image ID and briefly justify the answer.
+expected_image_id: img_06
+logical_model_id: edge-vlm
+synthesis_model_id: remote-llm
+inputs:
+  - artifact_id: img_01
+    path: ../../../../taskset_v0/images/V1_img_01.jpg
+  - artifact_id: img_02
+    path: ../../../../taskset_v0/images/V1_img_02.jpg
+  - artifact_id: img_03
+    path: ../../../../taskset_v0/images/V1_img_03.jpg
+  - artifact_id: img_04
+    path: ../../../../taskset_v0/images/V1_img_04.jpg
+  - artifact_id: img_05
+    path: ../../../../taskset_v0/images/V1_img_05.jpg
+  - artifact_id: img_06
+    path: ../../../../taskset_v0/images/V1_img_06.jpg
+worlds:
+  - world_id: one-replica-a28-colocated
+    input_workers: [a28, a28, a28, a28, a28, a28]
+    eligible_executor_ids: [a28-vlm, coordinator-remote-llm]
+  - world_id: one-replica-a4-colocated
+    input_workers: [a4, a4, a4, a4, a4, a4]
+    eligible_executor_ids: [a4-vlm, coordinator-remote-llm]
+    workflows: [centralized, distributed_3x2]
+  - world_id: one-replica-a5-colocated
+    input_workers: [a5, a5, a5, a5, a5, a5]
+    eligible_executor_ids: [a5-vlm, coordinator-remote-llm]
+    workflows: [centralized, distributed_3x2]
+  - world_id: three-replicas-distributed
+    input_workers: [a4, a4, a5, a5, a28, a28]
+    eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, coordinator-remote-llm]
+repeats: 3
+run_prefix: v1-switch-search-v9
+workflows: [centralized, distributed_3x2, distributed_6x1]
+report_name: v1_semantic_switch_search_v2

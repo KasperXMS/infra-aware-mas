@@ -160,3 +160,101 @@ def test_summary_computes_cross_worker_alignment_and_grouping(tmp_path: Path) ->
     assert result.site_aligned_multimodal_invocations == 0
     assert result.site_alignment_rate == 0
     assert result.artifact_grouping == [["img_01", "img_02"]]
+    assert result.initial_artifact_grouping == [["img_01", "img_02"]]
+    assert result.later_refinement_invocation_count == 0
+    assert result.later_refinement_cross_worker_bytes == 0
+    assert result.later_refinement_service_ms == 0
+
+
+def test_summary_separates_initial_coverage_from_later_refinement(
+    tmp_path: Path,
+) -> None:
+    run = tmp_path / "run"
+    run.mkdir()
+    events = [
+        {"event_type": "run.start", "run_id": "run"},
+        {
+            "event_type": "planner.ledger.initialized",
+            "planning_state": {
+                "initial_inputs": [
+                    {"artifact_id": "raw-1"},
+                    {"artifact_id": "raw-2"},
+                ]
+            },
+        },
+        {
+            "event_type": "execution.request",
+            "action_id": "initial-a",
+            "model_id": "edge-vlm",
+            "input_artifacts": ["raw-1"],
+        },
+        {
+            "event_type": "worker.execution.end",
+            "action_id": "initial-a",
+            "output_artifacts": ["evidence-1"],
+            "service_ms": 10.0,
+            "success": True,
+        },
+        {
+            "event_type": "execution.request",
+            "action_id": "initial-b",
+            "model_id": "edge-vlm",
+            "input_artifacts": ["raw-2"],
+        },
+        {
+            "event_type": "worker.execution.end",
+            "action_id": "initial-b",
+            "output_artifacts": ["evidence-2"],
+            "service_ms": 11.0,
+            "success": True,
+        },
+        {
+            "event_type": "execution.request",
+            "action_id": "verify",
+            "model_id": "edge-vlm",
+            "input_artifacts": ["raw-2"],
+        },
+        {
+            "event_type": "artifact.transfer.end",
+            "action_id": "verify",
+            "artifact_id": "raw-2",
+            "source_worker_id": "a5",
+            "target_worker_id": "a4",
+            "bytes_transferred": 42,
+            "transfer_ms": 2.0,
+            "success": True,
+        },
+        {
+            "event_type": "worker.execution.end",
+            "action_id": "verify",
+            "output_artifacts": ["verified"],
+            "service_ms": 12.0,
+            "success": True,
+        },
+    ]
+    (run / "trace.jsonl").write_text(
+        "".join(json.dumps(event) + "\n" for event in events), encoding="utf-8"
+    )
+    (run / "result.json").write_text(
+        json.dumps({"answer": "ANSWER: img_02", "e2e_ms": 40.0}),
+        encoding="utf-8",
+    )
+    spec = MASRunSpec(
+        schema_version="mas-run-spec-v1",
+        case_id="case",
+        group_id="group",
+        task_id="task",
+        instruction="inspect",
+        artifacts=[
+            ArtifactBinding(artifact_id="img_01", source_ref="one.jpg", site_id="A4"),
+            ArtifactBinding(artifact_id="img_02", source_ref="two.jpg", site_id="A5"),
+        ],
+        infra_world={},
+    )
+
+    result = summarize_mas_run(run, spec, "snapshot")
+
+    assert result.initial_artifact_grouping == [["img_01"], ["img_02"]]
+    assert result.later_refinement_invocation_count == 1
+    assert result.later_refinement_cross_worker_bytes == 42
+    assert result.later_refinement_service_ms == 12

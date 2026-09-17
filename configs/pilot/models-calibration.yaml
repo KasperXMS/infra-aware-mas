@@ -1,0 +1,11 @@
+models:
+  edge-vlm:
+    description: Vision-language model for inspecting images and synthesizing text findings.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 8192
+  remote-llm:
+    description: Existing remote language model used only for hidden reference synthesis.
+    input_modalities: [text]
+    output_modalities: [text]
+    context_window: 131072

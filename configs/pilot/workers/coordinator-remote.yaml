@@ -1,0 +1,16 @@
+worker_id: coordinator-remote
+host: 127.0.0.1
+port: 9002
+artifact_root: ../../../../data/pilot/coordinator-remote/artifacts
+executors:
+  - id: coordinator-remote-llm
+    capability: reasoning
+    backend:
+      type: openai_compatible
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      model: qwen3.8-max
+      api_key_env: DASHSCOPE_API_KEY
+      timeout_seconds: 600
+      max_tokens: 512
+      temperature: 0
+      verify_model: false

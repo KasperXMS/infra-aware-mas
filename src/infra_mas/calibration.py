@@ -36,7 +36,12 @@ from infra_mas.runtime.runtime import AgentRuntime
 from infra_mas.tracing.recorder import TraceRecorder
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
-ReferenceWorkflow = Literal["centralized", "distributed_3x2"]
+ReferenceWorkflow = Literal["centralized", "distributed_3x2", "distributed_6x1"]
+REFERENCE_WORKFLOWS: tuple[ReferenceWorkflow, ...] = (
+    "centralized",
+    "distributed_3x2",
+    "distributed_6x1",
+)
 
 
 class SweepInput(BaseModel):
@@ -52,6 +57,7 @@ class SweepWorld(BaseModel):
     world_id: NonEmptyString
     input_workers: list[NonEmptyString]
     eligible_executor_ids: list[NonEmptyString]
+    workflows: list[ReferenceWorkflow] | None = None
 
 
 class CalibrationSweepConfig(BaseModel):
@@ -61,10 +67,15 @@ class CalibrationSweepConfig(BaseModel):
     task: NonEmptyString
     expected_image_id: NonEmptyString
     logical_model_id: NonEmptyString
+    synthesis_model_id: NonEmptyString | None = None
     inputs: Annotated[list[SweepInput], Field(min_length=1)]
     worlds: Annotated[list[SweepWorld], Field(min_length=2)]
     repeats: int = Field(default=2, ge=1)
     run_prefix: NonEmptyString = "v1-switch"
+    workflows: Annotated[list[ReferenceWorkflow], Field(min_length=2)] = list(
+        REFERENCE_WORKFLOWS
+    )
+    report_name: NonEmptyString = "v1_semantic_switch_search_v2"
 
     @model_validator(mode="after")
     def validate_dimensions(self) -> CalibrationSweepConfig:
@@ -81,6 +92,19 @@ class CalibrationSweepConfig(BaseModel):
                 )
             if not world.eligible_executor_ids:
                 raise ValueError(f"world {world.world_id!r} has no eligible executor")
+            if world.workflows is not None:
+                if "centralized" not in world.workflows:
+                    raise ValueError(
+                        f"world {world.world_id!r} workflows must include centralized"
+                    )
+                if len(world.workflows) != len(set(world.workflows)):
+                    raise ValueError(
+                        f"world {world.world_id!r} workflows must be unique"
+                    )
+        if self.workflows[0] != "centralized" or "centralized" not in self.workflows:
+            raise ValueError("calibration workflows must begin with centralized")
+        if len(self.workflows) != len(set(self.workflows)):
+            raise ValueError("calibration workflows must be unique")
         return self
 
     @classmethod
@@ -116,23 +140,38 @@ def _image_label(artifact: ArtifactRef) -> str:
 async def _execute_reference(
     runtime: AgentRuntime,
     artifacts: list[ArtifactRef],
-    model_id: str,
+    visual_model_id: str,
+    synthesis_model_id: str,
     workflow: ReferenceWorkflow,
 ) -> tuple[list[ExecutionResult], int, int]:
     labels = [_image_label(artifact) for artifact in artifacts]
-    instruction = (
+    reference_instruction = (
         "Inspect the supplied image artifacts carefully and use the exact img_XX labels from "
         "the task. For this task, `blue airplane` means blue is a dominant visible fuselage or "
         "livery color, not merely a small logo. `truck` includes an airport ground-service "
         "truck with an enclosed cab and service/load body, but excludes baggage carts, tugs, "
         "and jet bridges. Do not renumber images."
     )
+    evidence_instruction = (
+        "Inspect the supplied image artifacts carefully and use the exact img_XX labels from "
+        "the task. Before classifying, report the broad continuous color regions on the main "
+        "fuselage, explicitly ignoring airline text, tail markings, logos, and thin accent "
+        "stripes. Also report each candidate ground truck, explicitly stating whether both an "
+        "enclosed cab and a service, cargo, catering, or load body are visibly present. Do not "
+        "require the entire cab to be unobscured: when the visible front/cab structure and the "
+        "service or load body clearly form one vehicle, treat a partly occluded cab as present. "
+        "Do not count a vehicle when neither a cab structure nor a qualifying body is visible. "
+        "Do not infer a truck from a jet bridge, passenger stairs, baggage cart, tug, or vague "
+        "distant "
+        "vehicle. A blue airplane requires a substantial continuous blue fuselage or livery "
+        "region. Judge airplane color and truck presence independently. Do not renumber images."
+    )
     if workflow == "centralized":
         result = await runtime.invoke(
             InvocationSpec(
-                model_id=model_id,
+                model_id=visual_model_id,
                 role="hidden-calibration-image-analysis",
-                instructions=instruction,
+                instructions=reference_instruction,
                 task=(
                     "Images are supplied in this label order: "
                     f"{', '.join(labels)}. Find the unique image containing both a blue "
@@ -144,39 +183,83 @@ async def _execute_reference(
         )
         return [result], 1, 0
 
-    async def inspect_pair(index: int) -> ExecutionResult:
-        pair = artifacts[index * 2 : index * 2 + 2]
-        pair_labels = labels[index * 2 : index * 2 + 2]
+    is_three_by_two = workflow == "distributed_3x2"
+    group_size = 2 if is_three_by_two else 1
+    group_count = len(artifacts) // group_size
+
+    async def inspect_group(index: int) -> ExecutionResult:
+        start = index * group_size
+        group = artifacts[start : start + group_size]
+        group_labels = labels[start : start + group_size]
         return await runtime.invoke(
             InvocationSpec(
-                model_id=model_id,
-                role=f"hidden-calibration-pair-{index + 1}",
-                instructions=instruction,
-                task=(
-                    f"The two inputs are {', '.join(pair_labels)} in that order. Report for "
-                    "each label using exactly: `img_XX | blue_airplane=yes/no | "
-                    "truck=yes/no | both=yes/no`. Inspect airplane color and truck presence "
-                    "independently before setting both."
+                model_id=visual_model_id,
+                role=(
+                    f"hidden-calibration-pair-{index + 1}"
+                    if is_three_by_two
+                    else f"hidden-calibration-evidence-{index + 1}"
                 ),
-                input_artifacts=pair,
+                instructions=(
+                    reference_instruction if is_three_by_two else evidence_instruction
+                ),
+                task=(
+                    (
+                        f"The two inputs are {', '.join(group_labels)} in that order. Report for "
+                        "each label using exactly: `img_XX | blue_airplane=yes/no | "
+                        "truck=yes/no | both=yes/no`. Inspect airplane color and truck presence "
+                        "independently before setting both."
+                    )
+                    if is_three_by_two
+                    else (
+                        f"The inputs are {', '.join(group_labels)} in that order. For each image, "
+                        "give the requested observations. Then finish that image's evidence with "
+                        "exactly: `img_XX | blue_airplane=yes/no | truck=yes/no | both=yes/no`."
+                    )
+                ),
+                input_artifacts=group,
             )
         )
 
-    pair_results = await asyncio.gather(*(inspect_pair(index) for index in range(3)))
+    evidence_results = await asyncio.gather(
+        *(inspect_group(index) for index in range(group_count))
+    )
     synthesis = await runtime.invoke(
         InvocationSpec(
-            model_id=model_id,
+            model_id=visual_model_id if is_three_by_two else synthesis_model_id,
             role="hidden-calibration-synthesis",
             instructions=(
-                "Select the label whose structured evidence says both=yes. Reply with exactly "
-                "`ANSWER: img_XX` plus one brief justification sentence, or `ANSWER: none` "
-                "only if every row says both=no."
+                (
+                    "Select the label whose structured evidence says both=yes. Reply with "
+                    "exactly `ANSWER: img_XX` plus one brief justification sentence, or "
+                    "`ANSWER: none` only if every row says both=no."
+                )
+                if is_three_by_two
+                else (
+                    "Apply the task definitions yourself to the full visual observations; do not "
+                    "blindly trust the evidence-row yes/no fields. A broad continuous blue "
+                    "fuselage or livery region qualifies, while blue lettering, tail markings, "
+                    "logos, or thin accents alone do not. A vehicle explicitly described as "
+                    "having both an enclosed cab and a service, cargo, catering, or load body "
+                    "qualifies as a truck even if the evidence later says it is not a standard "
+                    "road or cargo truck. Jet bridges, passenger stairs, baggage carts, and tugs "
+                    "without both features do not qualify. Select the unique image meeting both "
+                    "conditions. Reply with exactly `ANSWER: img_XX` plus one brief justification "
+                    "sentence, or `ANSWER: none` only if none meets both."
+                )
             ),
             task="Find the image containing both a blue airplane and a truck.",
-            input_artifacts=[result.output_artifacts[0] for result in pair_results],
+            input_artifacts=[result.output_artifacts[0] for result in evidence_results],
         )
     )
-    return [*pair_results, synthesis], 3, 1
+    return [*evidence_results, synthesis], group_count, 1
+
+
+def _workflow_counts(workflow: ReferenceWorkflow) -> tuple[int, int]:
+    if workflow == "centralized":
+        return 1, 0
+    if workflow == "distributed_3x2":
+        return 3, 1
+    return 6, 1
 
 
 async def _download_text(
@@ -257,8 +340,8 @@ def _completed_row(
         service_ms_sum=service_ms,
         transfer_bytes=transfer_bytes,
         transfer_ms_sum=transfer_ms,
-        vlm_calls=1 if workflow_id == "centralized" else 3,
-        synthesis_calls=0 if workflow_id == "centralized" else 1,
+        vlm_calls=_workflow_counts(workflow_id)[0],
+        synthesis_calls=_workflow_counts(workflow_id)[1],
         success=success,
         correct=success and _is_correct(answer, expected_image_id),
         final_answer=answer,
@@ -266,14 +349,21 @@ def _completed_row(
     )
 def build_calibration_summary(rows: Sequence[CalibrationRow]) -> dict[str, object]:
     world_ids = sorted({row.world_id for row in rows})
+    workflow_ids = [
+        workflow
+        for workflow in REFERENCE_WORKFLOWS
+        if any(row.workflow_id == workflow for row in rows)
+    ]
     summaries: list[dict[str, object]] = []
     by_world: dict[str, dict[str, object]] = {}
     for world_id in world_ids:
         workflow_summaries: dict[str, object] = {}
-        for workflow in ("centralized", "distributed_3x2"):
+        for workflow in workflow_ids:
             selected = [
                 row for row in rows if row.world_id == world_id and row.workflow_id == workflow
             ]
+            if not selected:
+                continue
             completed = [row for row in selected if row.success]
             values = [row.e2e_ms for row in completed]
             workflow_summaries[workflow] = {
@@ -283,70 +373,132 @@ def build_calibration_summary(rows: Sequence[CalibrationRow]) -> dict[str, objec
                 and len(completed) == len(selected)
                 and all(row.correct for row in completed),
                 "median_e2e_ms": median(values) if values else None,
+                "median_service_ms_sum": (
+                    median(row.service_ms_sum for row in completed) if completed else None
+                ),
+                "median_transfer_bytes": (
+                    median(row.transfer_bytes for row in completed) if completed else None
+                ),
+                "median_transfer_ms_sum": (
+                    median(row.transfer_ms_sum for row in completed) if completed else None
+                ),
+                "accuracy": (
+                    sum(row.correct for row in selected) / len(selected) if selected else 0.0
+                ),
             }
+        comparisons: dict[str, object] = {}
         central = cast(dict[str, object], workflow_summaries["centralized"])
-        distributed = cast(dict[str, object], workflow_summaries["distributed_3x2"])
-        central_ms = central["median_e2e_ms"]
-        distributed_ms = distributed["median_e2e_ms"]
-        correct = bool(central["all_correct"] and distributed["all_correct"])
-        winner: str | None = None
-        margin: float | None = None
-        if central_ms is not None and distributed_ms is not None:
-            central_value = float(cast(float, central_ms))
-            distributed_value = float(cast(float, distributed_ms))
-            winner = (
-                "centralized"
-                if central_value <= distributed_value
-                else "distributed_3x2"
-            )
-            margin = abs(central_value - distributed_value) / min(
-                central_value, distributed_value
-            )
+        for distributed_id in workflow_ids:
+            if distributed_id == "centralized":
+                continue
+            if distributed_id not in workflow_summaries:
+                continue
+            distributed = cast(dict[str, object], workflow_summaries[distributed_id])
+            central_ms = central["median_e2e_ms"]
+            distributed_ms = distributed["median_e2e_ms"]
+            correct = bool(central["all_correct"] and distributed["all_correct"])
+            winner: str | None = None
+            margin: float | None = None
+            if central_ms is not None and distributed_ms is not None:
+                central_value = float(cast(float, central_ms))
+                distributed_value = float(cast(float, distributed_ms))
+                winner = "centralized" if central_value <= distributed_value else distributed_id
+                margin = abs(central_value - distributed_value) / min(
+                    central_value, distributed_value
+                )
+            comparisons[distributed_id] = {
+                "winner": winner,
+                "margin": margin,
+                "correct": correct,
+            }
         summary: dict[str, object] = {
             "world_id": world_id,
             "workflows": workflow_summaries,
-            "winner": winner,
-            "margin": margin,
-            "correct": correct,
+            "comparisons": comparisons,
         }
         summaries.append(summary)
         by_world[world_id] = summary
 
-    candidates: list[tuple[float, str, str]] = []
+    candidates: list[tuple[float, float, str, str, str]] = []
     near_boundary_pairs: list[dict[str, object]] = []
-    for index, world_a in enumerate(world_ids):
-        for world_b in world_ids[index + 1 :]:
-            first = by_world[world_a]
-            second = by_world[world_b]
-            if (
-                first["correct"]
-                and second["correct"]
-                and first["winner"] != second["winner"]
-                and first["winner"] is not None
-                and second["winner"] is not None
-            ):
-                margin_a = float(cast(float, first["margin"]))
-                margin_b = float(cast(float, second["margin"]))
-                if margin_a >= 0.2 and margin_b >= 0.2:
-                    candidates.append((min(margin_a, margin_b), world_a, world_b))
-                else:
-                    near_boundary_pairs.append(
-                        {
-                            "world_a": world_a,
-                            "world_b": world_b,
-                            "winner_a": first["winner"],
-                            "winner_b": second["winner"],
-                            "margin_a": margin_a,
-                            "margin_b": margin_b,
-                            "classification": "near-boundary calibration case",
-                        }
+    for distributed_id in workflow_ids:
+        if distributed_id == "centralized":
+            continue
+        for index, world_a in enumerate(world_ids):
+            for world_b in world_ids[index + 1 :]:
+                first_comparisons = cast(
+                    dict[str, object], by_world[world_a]["comparisons"]
+                )
+                second_comparisons = cast(
+                    dict[str, object], by_world[world_b]["comparisons"]
+                )
+                if (
+                    distributed_id not in first_comparisons
+                    or distributed_id not in second_comparisons
+                ):
+                    continue
+                first = cast(
+                    dict[str, object],
+                    first_comparisons[distributed_id],
+                )
+                second = cast(
+                    dict[str, object],
+                    second_comparisons[distributed_id],
+                )
+                if (
+                    first["correct"]
+                    and second["correct"]
+                    and first["winner"] != second["winner"]
+                    and first["winner"] is not None
+                    and second["winner"] is not None
+                ):
+                    margin_a = float(cast(float, first["margin"]))
+                    margin_b = float(cast(float, second["margin"]))
+                    central_margin = (
+                        margin_a if first["winner"] == "centralized" else margin_b
                     )
+                    if margin_a >= 0.2 and margin_b >= 0.2:
+                        candidates.append(
+                            (
+                                central_margin,
+                                min(margin_a, margin_b),
+                                world_a,
+                                world_b,
+                                distributed_id,
+                            )
+                        )
+                    else:
+                        near_boundary_pairs.append(
+                            {
+                                "world_a": world_a,
+                                "world_b": world_b,
+                                "compared_workflow": distributed_id,
+                                "winner_a": first["winner"],
+                                "winner_b": second["winner"],
+                                "margin_a": margin_a,
+                                "margin_b": margin_b,
+                                "classification": "near-boundary calibration case",
+                            }
+                        )
     if candidates:
-        _, world_a, world_b = max(candidates)
-        first = by_world[world_a]
-        second = by_world[world_b]
+        _, _, world_a, world_b, distributed_id = max(candidates)
+        first = cast(
+            dict[str, object],
+            cast(dict[str, object], by_world[world_a]["comparisons"])[distributed_id],
+        )
+        second = cast(
+            dict[str, object],
+            cast(dict[str, object], by_world[world_b]["comparisons"])[distributed_id],
+        )
         admission: dict[str, object] = {
             "semantic_switch_pair_found": True,
+            "world_1": world_a,
+            "world_2": world_b,
+            "workflow_1": first["winner"],
+            "workflow_2": second["winner"],
+            "margin_1": first["margin"],
+            "margin_2": second["margin"],
+            "compared_workflow": distributed_id,
             "world_a": world_a,
             "world_b": world_b,
             "reference_winner_a": first["winner"],
@@ -355,7 +507,10 @@ def build_calibration_summary(rows: Sequence[CalibrationRow]) -> dict[str, objec
             "margin_b": second["margin"],
         }
     else:
-        admission = {"semantic_switch_pair_found": False}
+        admission = {
+            "semantic_switch_pair_found": False,
+            "reason": "V1 does not provide a sufficiently robust real-system crossover",
+        }
     return {
         **admission,
         "near_boundary_pairs": near_boundary_pairs,
@@ -363,50 +518,93 @@ def build_calibration_summary(rows: Sequence[CalibrationRow]) -> dict[str, objec
     }
 
 
-def _write_report(output_directory: Path, rows: list[CalibrationRow]) -> dict[str, object]:
+def _write_report(
+    output_directory: Path,
+    rows: list[CalibrationRow],
+    report_name: str,
+) -> dict[str, object]:
     summary = build_calibration_summary(rows)
     payload = {
         **summary,
         "runs": [row.model_dump(mode="json") for row in rows],
     }
     output_directory.mkdir(parents=True, exist_ok=True)
-    json_path = output_directory / "v1_semantic_switch_search.json"
+    json_path = output_directory / f"{report_name}.json"
     json_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     lines = [
-        "# V1 semantic-switch calibration search",
+        "# V1 semantic-switch calibration search V2",
         "",
-        "| World | Centralized E2E median (ms) | 3x2 E2E median (ms) | Winner | Margin | Correct |",
-        "| --- | ---: | ---: | --- | ---: | --- |",
+        "## Existing distributed_3x2 implementation audit",
+        "",
+        "Does distributed_3x2 perform a real model-based semantic synthesis after the three "
+        "VLM outputs? **YES**.",
+        "",
+        "The audited pre-V2 implementation invoked `edge-vlm` for synthesis on Worker A28. The "
+        "synthesis invocation was inside the measured E2E interval; its `service_ms` was included "
+        "in `service_ms_sum`. Normal transfer semantics moved the A4 and A5 evidence artifacts "
+        "to A28 (188 bytes in the inspected distributed trace).",
+        "",
+        "The V2 rerun leaves `distributed_3x2` unchanged: its synthesis still uses `edge-vlm` "
+        "and normal locality-aware placement. Only the new `distributed_6x1` invokes "
+        "`remote-llm` on Worker `coordinator-remote`. Its six evidence artifacts are transferred "
+        "there through the normal Worker-to-Worker path. Synthesis service time remains part of "
+        "`service_ms_sum` and the invocation remains inside measured E2E.",
+        "",
+        "## Calibration measurements",
+        "",
+        "| World | Workflow | Median E2E | Service | Transfer bytes | Transfer ms | Accuracy |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for value in cast(list[dict[str, object]], summary["world_summaries"]):
         workflows = cast(dict[str, dict[str, object]], value["workflows"])
-        lines.append(
-            "| {world} | {central} | {distributed} | {winner} | {margin} | {correct} |".format(
-                world=value["world_id"],
-                central=workflows["centralized"]["median_e2e_ms"],
-                distributed=workflows["distributed_3x2"]["median_e2e_ms"],
-                winner=value["winner"],
-                margin=value["margin"],
-                correct=value["correct"],
+        for workflow_id, workflow in workflows.items():
+            lines.append(
+                (
+                    "| {world} | {workflow_id} | {e2e} | {service} | {bytes} | "
+                    "{transfer} | {accuracy} |"
+                ).format(
+                    world=value["world_id"],
+                    workflow_id=workflow_id,
+                    e2e=workflow["median_e2e_ms"],
+                    service=workflow["median_service_ms_sum"],
+                    bytes=workflow["median_transfer_bytes"],
+                    transfer=workflow["median_transfer_ms_sum"],
+                    accuracy=workflow["accuracy"],
+                )
             )
-        )
     lines.extend(
         [
             "",
             f"Semantic-switch pair found: **{summary['semantic_switch_pair_found']}**.",
+            "",
+            "## Pairwise winner margins",
+            "",
+            "| World | Comparison | Winner | Relative margin | Correct |",
+            "| --- | --- | --- | ---: | --- |",
         ]
     )
+    for value in cast(list[dict[str, object]], summary["world_summaries"]):
+        comparisons = cast(dict[str, dict[str, object]], value["comparisons"])
+        for workflow_id, comparison in comparisons.items():
+            lines.append(
+                f"| {value['world_id']} | centralized vs {workflow_id} | "
+                f"{comparison['winner']} | {comparison['margin']} | "
+                f"{comparison['correct']} |"
+            )
+    if not summary["semantic_switch_pair_found"]:
+        lines.extend(["", f"Reason: {summary['reason']}"])
     near_boundary = cast(list[dict[str, object]], summary["near_boundary_pairs"])
     if near_boundary:
         lines.extend(["", "## Near-boundary reversal pairs", ""])
         for pair in near_boundary:
             lines.append(
-                f"- {pair['world_a']} ({pair['winner_a']}, margin={pair['margin_a']}) vs "
+                f"- [{pair['compared_workflow']}] {pair['world_a']} "
+                f"({pair['winner_a']}, margin={pair['margin_a']}) vs "
                 f"{pair['world_b']} ({pair['winner_b']}, margin={pair['margin_b']})"
             )
-    (output_directory / "v1_semantic_switch_search.md").write_text(
+    (output_directory / f"{report_name}.md").write_text(
         "\n".join(lines) + "\n", encoding="utf-8"
     )
     return payload
@@ -460,8 +658,8 @@ async def run_calibration_sweep(
                 experiment.scheduler, active_registry, models, None, provider
             )
             for repeat in range(1, sweep.repeats + 1):
-                for workflow in ("centralized", "distributed_3x2"):
-                    workflow_id = workflow
+                for workflow_id in world.workflows or sweep.workflows:
+                    workflow = workflow_id
                     run_id = f"cal-{sweep.run_prefix}-{world.world_id}-{workflow}-r{repeat}"
                     completed = _completed_row(
                         runs_root / run_id,
@@ -486,8 +684,7 @@ async def run_calibration_sweep(
                     answer = ""
                     started_at = perf_counter()
                     error: str | None = None
-                    vlm_calls = 1 if workflow == "centralized" else 3
-                    synthesis_calls = 0 if workflow == "centralized" else 1
+                    vlm_calls, synthesis_calls = _workflow_counts(workflow_id)
                     try:
                         artifacts = await upload_placed_inputs(
                             inputs,
@@ -508,7 +705,11 @@ async def run_calibration_sweep(
                             model_registry=models,
                         )
                         results, vlm_calls, synthesis_calls = await _execute_reference(
-                            runtime, artifacts, sweep.logical_model_id, workflow_id
+                            runtime,
+                            artifacts,
+                            sweep.logical_model_id,
+                            sweep.synthesis_model_id or sweep.logical_model_id,
+                            workflow_id,
                         )
                         answer = await _download_text(
                             results[-1].output_artifacts[0], clients, temporary_root
@@ -548,4 +749,4 @@ async def run_calibration_sweep(
                     )
     finally:
         await close_worker_clients(clients)
-    return _write_report(output_directory.resolve(), rows)
+    return _write_report(output_directory.resolve(), rows, sweep.report_name)
