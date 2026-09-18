@@ -1,0 +1,11 @@
+models:
+  video-vlm-8k:
+    description: General vision-language analysis model with an 8K context window.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 8192
+  video-vlm-27b:
+    description: Higher-capacity general vision-language analysis and reasoning model.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 131072

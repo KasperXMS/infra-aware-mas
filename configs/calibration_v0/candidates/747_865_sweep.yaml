@@ -1,0 +1,63 @@
+experiment_config: ../experiment.yaml
+local_model_id: local-video-vlm
+strong_model_id: strong-video-vlm
+input_workers: [a4, a5, a28]
+eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, strong-4090-vlm]
+repeats: 3
+sample_count_per_chunk: 12
+frame_width: 320
+run_prefix: candidate-screen-v0
+
+tasks:
+  - task_id: video_mme:747
+    evaluator_id: video_mme_multiple_choice
+    instruction: >-
+      Review the complete basketball game across all three chronological chunks. 747-1:
+      What happened on the counterattack after Sabonis' first steal? A: Sabonis finished
+      the pick-and-roll. B: A teammate hit a three. C: Sabonis' pass was broken up.
+      D: A teammate drove and failed. 747-2: How many field goals did Lithuania score
+      from the last pre-halftime shooting-percentage graphic to the end of the half?
+      A: 4. B: 2. C: 1. D: 6. 747-3: How many timeouts did Hungary actively use
+      throughout the game? A: 2. B: 5. C: 7. D: 3. Return only a JSON object mapping
+      each question ID to one option letter.
+    inputs:
+      - artifact_id: video_mme:747:chunk:0
+        path: /home/edge/xiaoming/calibration_v0/candidates/747/chunk-0.webm
+        duration_s: 1091.341
+      - artifact_id: video_mme:747:chunk:1
+        path: /home/edge/xiaoming/calibration_v0/candidates/747/chunk-1.webm
+        duration_s: 1092.547
+      - artifact_id: video_mme:747:chunk:2
+        path: /home/edge/xiaoming/calibration_v0/candidates/747/chunk-2.webm
+        duration_s: 1093.755
+
+  - task_id: video_mme:865
+    evaluator_id: video_mme_multiple_choice
+    instruction: >-
+      Review the complete travel video across all three chronological chunks. 865-1:
+      What is the introduction order of Minakshi Amman Temple, Alhambra, Burj Khalifa,
+      Machu Picchu, and the Colosseum? A: a,c,b,e,d. B: e,b,c,d,a. C: b,c,a,d,e.
+      D: a,b,c,d,e. 865-2: What characterizes the 16th location? A: built from 20,000
+      volcanic stones. B: construction began in 1506. C: a popular Lebanon attraction.
+      D: restaurant and bar on the 122nd floor. 865-3: How many buildings were built
+      in less than 110 years? A: 1. B: 2. C: 3. D: 4. Return only a JSON object mapping
+      each question ID to one option letter.
+    inputs:
+      - artifact_id: video_mme:865:chunk:0
+        path: /home/edge/xiaoming/calibration_v0/candidates/865/chunk-0.mp4
+        duration_s: 842.676
+      - artifact_id: video_mme:865:chunk:1
+        path: /home/edge/xiaoming/calibration_v0/candidates/865/chunk-1.mp4
+        duration_s: 842.684
+      - artifact_id: video_mme:865:chunk:2
+        path: /home/edge/xiaoming/calibration_v0/candidates/865/chunk-2.mp4
+        duration_s: 842.525
+
+worlds:
+  - world_id: H1_distributed_constrained
+    bandwidth_mbps: 3.0
+    rtt_ms: 50.0
+  - world_id: H2_distributed_favorable
+    bandwidth_mbps: 100.0
+    rtt_ms: 0.0
+workflows: [centralized_raw, local_reduction]

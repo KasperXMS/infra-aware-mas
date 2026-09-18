@@ -1,0 +1,15 @@
+schema_version: calibration-v0-planner-cell-v1
+experiment_id: video-mme-795-h2-blind
+task_config: task-795.yaml
+experiment_config: experiment-h2-blind.yaml
+world_id: H2_distributed_favorable
+arm: blind
+infrastructure_visibility: none
+network:
+  bandwidth_mbps: 100.0
+  added_rtt_ms: 0.0
+  observed_baseline_rtt_ms: 33.0
+  effective_rtt_ms: 33.0
+input_workers: [a4, a5, a28]
+eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, strong-4090-vlm]
+planner_tools: [spawn_agent, inspect_artifact]

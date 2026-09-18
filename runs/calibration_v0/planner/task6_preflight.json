@@ -1,0 +1,40 @@
+{
+  "schema_version": "calibration-v0-planner-preflight-v1",
+  "config_validation": "passed",
+  "artifact_placement_validation": "passed",
+  "jetson_workers": {
+    "a4": [
+      "a4-vlm"
+    ],
+    "a5": [
+      "a5-vlm"
+    ],
+    "a28": [
+      "a28-vlm"
+    ]
+  },
+  "strong_4090": {
+    "worker_id": "strong-4090",
+    "site_id": "4090",
+    "status": "expected_unavailable",
+    "checked": false,
+    "reason": "Task 6 preflight is intentionally Jetson-only"
+  },
+  "capability_validation": {
+    "status": "execution_blocked",
+    "raw_artifact_type": "video/mp4",
+    "planner_tools": [
+      "spawn_agent",
+      "inspect_artifact"
+    ],
+    "missing_planner_operator": "sample_frames",
+    "configured_model_input_modalities": [
+      "text",
+      "image"
+    ],
+    "direct_video_supported": false,
+    "artifact_binding": "worker_local_paths",
+    "worker_local_source_binding_supported": false,
+    "reason": "The unchanged open-ended Planner cannot invoke sample_frames, and the deployed Ollama VLM path does not accept raw MP4 input. The current benchmark bridge also materializes controller-local source paths rather than binding pre-existing Worker-local files. Config and placement validation passed, but execution must remain blocked without changing the Planner/runtime contract."
+  }
+}

@@ -1,0 +1,42 @@
+experiment_config: ../experiment.yaml
+local_model_id: local-video-vlm
+strong_model_id: strong-video-vlm
+input_workers: [a4, a5, a28]
+eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, strong-4090-vlm]
+repeats: 3
+sample_count_per_chunk: 12
+frame_width: 320
+run_prefix: candidate-screen-v0
+
+tasks:
+  - task_id: video_mme:857
+    evaluator_id: video_mme_multiple_choice
+    instruction: >-
+      Review the complete video across all three chronological chunks. 857-1: After
+      feeding the ducks, what did the male protagonist do after riding his bike?
+      A: Check on the cattle herd. B: Pick up duck eggs. C: Check the growth of apple
+      and chestnut trees. D: None of the above. 857-2: What is the purpose of processing
+      the blue plastic barrel? A: cattle troughs. B: duck troughs. C: chicken troughs.
+      D: pig troughs. 857-3: Which daily-life order is correct? A: ducks, chickens,
+      cattle, pigs. B: ducks, cattle, chickens, pigs. C: ducks, cattle, dinner, pigs.
+      D: ducks, cattle, games, pigs. Return only a JSON object mapping each question ID
+      to one option letter.
+    inputs:
+      - artifact_id: video_mme:857:chunk:0
+        path: /home/edge/xiaoming/calibration_v0/artifacts/857/chunk-0.mp4
+        duration_s: 663.441
+      - artifact_id: video_mme:857:chunk:1
+        path: /home/edge/xiaoming/calibration_v0/artifacts/857/chunk-1.mp4
+        duration_s: 667.972
+      - artifact_id: video_mme:857:chunk:2
+        path: /home/edge/xiaoming/calibration_v0/artifacts/857/chunk-2.mp4
+        duration_s: 657.625
+
+worlds:
+  - world_id: H1_distributed_constrained
+    bandwidth_mbps: 3.0
+    rtt_ms: 50.0
+  - world_id: H2_distributed_favorable
+    bandwidth_mbps: 100.0
+    rtt_ms: 0.0
+workflows: [centralized_raw, local_reduction]

@@ -10,7 +10,13 @@ from typing import cast
 from infra_mas.bench import run_benchmark_case
 from infra_mas.calibration import run_calibration_sweep
 from infra_mas.calibration_v0 import run_calibration_v0_sweep
+from infra_mas.local_profile import run_local_profiles
+from infra_mas.network_microbench import run_network_microbench
 from infra_mas.planner.context import InfrastructureVisibility
+from infra_mas.planner_calibration_v0 import (
+    preflight_planner_jetsons,
+    validate_planner_experiment_cells,
+)
 from infra_mas.semantic_switch import write_v1_semantic_switch_report
 from infra_mas.stability import write_v1_repeat_report
 
@@ -45,6 +51,39 @@ def build_calibration_v0_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_local_profile_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="infra-mas-bench profile-local-v0",
+        description="Profile calibration_v0 local reduction on Jetsons only",
+    )
+    parser.add_argument("--sweep", type=Path, required=True)
+    parser.add_argument("--raw-runs", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    return parser
+
+
+def build_network_microbench_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="infra-mas-bench network-microbench-v0",
+        description="Measure all Jetson-to-Jetson directions and concurrent flows",
+    )
+    parser.add_argument("--executors", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    return parser
+
+
+def build_planner_v0_check_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="infra-mas-bench check-planner-v0",
+        description="Validate the four Task 795 Planner cells without running a Planner",
+    )
+    parser.add_argument("--manifest", type=Path, action="append", required=True)
+    parser.add_argument("--jetson-preflight", action="store_true")
+    parser.add_argument("--timeout-seconds", type=float, default=30.0)
+    parser.add_argument("--output", type=Path)
+    return parser
+
+
 def build_stability_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="infra-mas-bench summarize-v1",
@@ -68,6 +107,49 @@ def build_semantic_switch_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "network-microbench-v0":
+        args = build_network_microbench_parser().parse_args(sys.argv[2:])
+        payload = asyncio.run(run_network_microbench(args.executors, args.output))
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "check-planner-v0":
+        args = build_planner_v0_check_parser().parse_args(sys.argv[2:])
+        if args.jetson_preflight:
+            report = asyncio.run(
+                preflight_planner_jetsons(
+                    args.manifest, timeout_seconds=args.timeout_seconds
+                )
+            ).model_dump(mode="json")
+        else:
+            cells = validate_planner_experiment_cells(args.manifest)
+            report = {
+                "schema_version": "calibration-v0-planner-validation-v1",
+                "config_validation": "passed",
+                "artifact_placement_validation": "passed",
+                "cells": [cell.experiment_id for cell in cells],
+                "strong_4090": {
+                    "status": "expected_unavailable",
+                    "checked": False,
+                },
+                "capability_validation": {
+                    "status": "execution_blocked",
+                    "missing_planner_operator": "sample_frames",
+                    "direct_video_supported": False,
+                    "worker_local_source_binding_supported": False,
+                },
+            }
+        rendered = json.dumps(report, ensure_ascii=False, indent=2)
+        if args.output is not None:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered + "\n", encoding="utf-8")
+        encoding = sys.stdout.encoding or "utf-8"
+        print(rendered.encode(encoding, errors="backslashreplace").decode(encoding))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "profile-local-v0":
+        args = build_local_profile_parser().parse_args(sys.argv[2:])
+        payload = asyncio.run(run_local_profiles(args.sweep, args.raw_runs, args.output))
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "calibrate-v0":
         args = build_calibration_v0_parser().parse_args(sys.argv[2:])
         payload = asyncio.run(run_calibration_v0_sweep(args.sweep, args.output))
