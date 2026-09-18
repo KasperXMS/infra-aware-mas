@@ -1,0 +1,34 @@
+service_times:
+  - executor_id: a4-vlm
+    model_id: local-video-vlm
+    service_ms: 60000
+    source: static
+  - executor_id: a5-vlm
+    model_id: local-video-vlm
+    service_ms: 60000
+    source: static
+  - executor_id: a28-vlm
+    model_id: local-video-vlm
+    service_ms: 60000
+    source: static
+  - executor_id: strong-4090-vlm
+    model_id: strong-video-vlm
+    service_ms: 60000
+    source: static
+
+network_links:
+  - source_site: A4
+    target_site: "4090"
+    bandwidth_mbps: 100
+    rtt_ms: 33
+    bidirectional: true
+  - source_site: A5
+    target_site: "4090"
+    bandwidth_mbps: 100
+    rtt_ms: 33
+    bidirectional: true
+  - source_site: A28
+    target_site: "4090"
+    bandwidth_mbps: 100
+    rtt_ms: 33
+    bidirectional: true

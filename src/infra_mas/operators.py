@@ -118,5 +118,6 @@ GENERAL_OPERATOR_REGISTRY = OperatorRegistry(
     [
         OperatorBinding(operator_id="invoke_model", runtime_tool="delegate"),
         OperatorBinding(operator_id="read_artifact", runtime_tool="inspect_artifact"),
+        OperatorBinding(operator_id="sample_frames", runtime_tool="worker.sample_frames"),
     ]
 )

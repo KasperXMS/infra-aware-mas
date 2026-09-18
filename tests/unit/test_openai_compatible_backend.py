@@ -8,6 +8,7 @@ import pytest
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
+from openai.types.completion_usage import CompletionUsage
 
 from infra_mas.core.errors import ExecutionFailedError, InvalidModelResponseError
 from infra_mas.core.model import ModelRequest
@@ -35,6 +36,7 @@ class FakeCompletions:
             created=0,
             model="test-model",
             object="chat.completion",
+            usage=CompletionUsage(prompt_tokens=100, completion_tokens=20, total_tokens=120),
         )
 
 
@@ -83,6 +85,8 @@ async def test_backend_builds_text_and_image_request(tmp_path: Path) -> None:
 
     assert result.output_text == "model answer"
     assert result.latency_ms >= 0
+    assert result.input_tokens == 100
+    assert result.output_tokens == 20
     messages = cast(list[dict[str, object]], completions.arguments["messages"])
     assert messages[0] == {
         "role": "system",
@@ -93,6 +97,53 @@ async def test_backend_builds_text_and_image_request(tmp_path: Path) -> None:
     assert "observed text" in cast(str, content[1]["text"])
     image_url = cast(dict[str, str], content[2]["image_url"])["url"]
     assert image_url == "data:image/png;base64,ZmFrZS1wbmc="
+
+
+async def test_backend_builds_video_url_and_computes_configured_cost(tmp_path: Path) -> None:
+    video_path = tmp_path / "chunk.mp4"
+    video_path.write_bytes(b"fake-video")
+    completions = FakeCompletions()
+    backend = OpenAICompatibleBackend(
+        "http://model.test/v1",
+        "test-model",
+        input_cost_per_million_tokens_usd=2.0,
+        output_cost_per_million_tokens_usd=10.0,
+        client=cast(AsyncOpenAI, FakeClient(completions)),
+    )
+
+    result = await backend.infer(
+        ModelRequest(
+            instructions="Inspect video.",
+            task="Analyze it.",
+            input_paths=[str(video_path)],
+        )
+    )
+
+    messages = cast(list[dict[str, object]], completions.arguments["messages"])
+    content = cast(list[dict[str, object]], messages[1]["content"])
+    video_url = cast(dict[str, str], content[1]["video_url"])["url"]
+    assert video_url == "data:video/mp4;base64,ZmFrZS12aWRlbw=="
+    assert result.api_cost_usd == pytest.approx(0.0004)
+
+
+async def test_backend_requests_json_object_and_disables_reasoning() -> None:
+    completions = FakeCompletions(output='{"answer":"A"}')
+    backend = OpenAICompatibleBackend(
+        "http://model.test/v1",
+        "test-model",
+        reasoning_effort="none",
+        output_format="json_object",
+        client=cast(AsyncOpenAI, FakeClient(completions)),
+    )
+
+    await backend.infer(
+        ModelRequest(instructions="Return JSON.", task="Answer.", input_paths=[])
+    )
+
+    assert completions.arguments["extra_body"] == {
+        "reasoning_effort": "none",
+        "response_format": {"type": "json_object"},
+    }
 
 
 async def test_backend_rejects_unsupported_binary_input(tmp_path: Path) -> None:

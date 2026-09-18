@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 
 from infra_mas.core.errors import ExecutionFailedError, WorkerUnavailableError
-from infra_mas.core.execution import ExecutionRequest, ExecutionResult
+from infra_mas.core.execution import ExecutionRequest, ExecutionResult, SampleFramesRequest
 from infra_mas.core.executor import ExecutorSpec
 from infra_mas.core.trace import TraceSink
 from infra_mas.execution.transfer import TransferManager
@@ -86,6 +86,9 @@ class ExecutionManager:
             queue_ms=result.queue_ms,
             service_ms=result.service_ms,
             transfer_ms=result.transfer_ms,
+            input_tokens=result.metadata.get("input_tokens", 0),
+            output_tokens=result.metadata.get("output_tokens", 0),
+            api_cost_usd=result.metadata.get("api_cost_usd", 0.0),
             output_artifacts=[artifact.id for artifact in result.output_artifacts],
             success=True,
         )
@@ -98,5 +101,59 @@ class ExecutionManager:
                 size_bytes=artifact.size_bytes,
                 locations=artifact.locations,
                 executor=executor.id,
+            )
+        return result
+
+    async def sample_frames(
+        self,
+        request: SampleFramesRequest,
+        target_worker_id: str,
+    ) -> ExecutionResult:
+        """Localize a video and execute the registered generic sampling operator."""
+        client = self._clients.get(target_worker_id)
+        if client is None:
+            raise WorkerUnavailableError(f"no client configured for worker {target_worker_id!r}")
+        transfer = await self._transfer_manager.ensure_local(
+            request.input_artifact,
+            target_worker_id,
+            action_id=request.request_id,
+        )
+        await self._trace.record(
+            "worker.execution.start",
+            action_id=request.request_id,
+            request_id=request.request_id,
+            agent="sample_frames",
+            executor=f"{target_worker_id}:sample_frames",
+            worker_id=target_worker_id,
+            semantic_operator="sample_frames",
+        )
+        result = await client.sample_frames(request)
+        result.transfer_ms += transfer.transfer_ms
+        await self._trace.record(
+            "worker.execution.end",
+            action_id=request.request_id,
+            request_id=request.request_id,
+            agent="sample_frames",
+            executor=result.executor_id,
+            worker_id=target_worker_id,
+            queue_ms=result.queue_ms,
+            service_ms=result.service_ms,
+            transfer_ms=result.transfer_ms,
+            input_tokens=0,
+            output_tokens=0,
+            api_cost_usd=0.0,
+            semantic_operator="sample_frames",
+            output_artifacts=[artifact.id for artifact in result.output_artifacts],
+            success=True,
+        )
+        for artifact in result.output_artifacts:
+            await self._trace.record(
+                "artifact.created",
+                action_id=request.request_id,
+                artifact_id=artifact.id,
+                artifact_type=artifact.artifact_type,
+                size_bytes=artifact.size_bytes,
+                locations=artifact.locations,
+                executor=result.executor_id,
             )
         return result

@@ -1,0 +1,67 @@
+experiment_config: experiment.yaml
+local_model_id: local-video-vlm
+strong_model_id: strong-video-vlm
+input_workers: [a4, a5, a28]
+eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, strong-4090-vlm]
+repeats: 3
+sample_count_per_chunk: 12
+frame_width: 320
+run_prefix: calibration-v0
+
+tasks:
+  - task_id: video_mme:795
+    evaluator_id: video_mme_multiple_choice
+    instruction: >-
+      Watch the complete video and answer all three multiple-choice questions using
+      evidence across the video. 795-1: What is this video mainly about? A: Several
+      magic tricks and magicians' past journey. B: A magician reveals the secrets
+      behind several magic tricks. C: A magician shows tricks he is good at. D:
+      Dangerous stunts. 795-2: In which order do these events occur: (a) bend a
+      straw with spirits; (b) two snacks are poured from a bag; (c) two coins on a
+      plate turn into seven; (d) coins are drilled into a cup from the bottom? A:
+      dabc. B: dcab. C: cdab. D: cadb. 795-3: Which tool is used in the first magic?
+      A: String. B: Coin. C: Hat. D: Glasses. Return only a JSON object mapping each
+      question ID to one option letter, for example {"795-1":"A","795-2":"B","795-3":"C"}.
+    inputs:
+      - artifact_id: video_mme:795:chunk:0
+        path: /home/super/xiaoming/calibration_v0/chunks/795/chunk-0.mp4
+        duration_s: 832.001
+      - artifact_id: video_mme:795:chunk:1
+        path: /home/super/xiaoming/calibration_v0/chunks/795/chunk-1.mp4
+        duration_s: 834.141
+      - artifact_id: video_mme:795:chunk:2
+        path: /home/super/xiaoming/calibration_v0/chunks/795/chunk-2.mp4
+        duration_s: 828.988
+
+  - task_id: video_mme:848
+    evaluator_id: video_mme_multiple_choice
+    instruction: >-
+      Watch the complete video and answer all three multiple-choice questions using
+      evidence across the video. 848-1: In which order do these chapters occur:
+      (a) Scaling Up One Plus One; (b) Public Eye; (c) Broken Trust; (d) Revenge?
+      A: badc. B: dbca. C: abcd. D: acdb. 848-2: How many major setbacks are
+      discussed? A: 0. B: 2. C: 4. D: 6. 848-3: What triggered the 1971 name change
+      to Nike? A: Negotiations with Onitsuka failed. B: Blue Ribbon went bankrupt.
+      C: The Olympics required it. D: Phil disliked the old name. Return only a JSON
+      object mapping each question ID to one option letter, for example
+      {"848-1":"A","848-2":"B","848-3":"C"}.
+    inputs:
+      - artifact_id: video_mme:848:chunk:0
+        path: /home/super/xiaoming/calibration_v0/chunks/848/chunk-0.mp4
+        duration_s: 680.001
+      - artifact_id: video_mme:848:chunk:1
+        path: /home/super/xiaoming/calibration_v0/chunks/848/chunk-1.mp4
+        duration_s: 680.161
+      - artifact_id: video_mme:848:chunk:2
+        path: /home/super/xiaoming/calibration_v0/chunks/848/chunk-2.mp4
+        duration_s: 677.621
+
+worlds:
+  - world_id: H1_distributed_constrained
+    bandwidth_mbps: 3.0
+    rtt_ms: 50.0
+  - world_id: H2_distributed_favorable
+    bandwidth_mbps: 100.0
+    rtt_ms: 0.0
+
+workflows: [centralized_raw, local_reduction]

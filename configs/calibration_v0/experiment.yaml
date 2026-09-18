@@ -1,0 +1,19 @@
+planner_mode: dynamic_models
+planner_harness: minimal
+agents_config: null
+models_config: models.yaml
+executors_config: executors.yaml
+resources_config: resources.yaml
+runs_root: ../../runs/calibration_v0
+temporary_root: ../../.runtime/calibration_v0
+infrastructure_visibility: none
+worker_timeout_seconds: 1800
+max_turns: 1
+scheduler:
+  type: locality_aware
+# Required by the shared experiment schema, but calibration_v0 never constructs a Planner.
+planner:
+  model: unused-calibration-v0
+  api: chat_completions
+  api_key_env: null
+  timeout_seconds: 1

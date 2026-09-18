@@ -239,6 +239,32 @@ uv run infra-mas-bench calibrate \
 The remote Worker reads `DASHSCOPE_API_KEY`. It is excluded from the normal pilot Planner model
 catalog and is used only by hidden calibration references.
 
+### Long-video `calibration_v0`
+
+The planner-free long-video runner executes `centralized_raw` and `local_reduction` at least three
+times in both controlled worlds and appends measurements to `raw_runs.jsonl`:
+
+```bash
+uv run infra-mas-bench calibrate-v0 \
+  --sweep /path/to/calibration_v0_sweep.yaml \
+  --output runs/calibration_v0
+```
+
+The sweep contains no gold answer. It accepts a question/options, three already-created fixed-time
+chunks with their durations, A4/A5/A28 input Worker IDs, logical local/strong model IDs, and the
+shared eligible executor set. `H1_distributed_constrained` should use 10 Mbps plus 50 ms added RTT;
+`H2_distributed_favorable` should use 100 Mbps with no added RTT. The target Worker enforces these
+profiles while streaming actual bytes, and transfer/E2E fields are wall-clock measurements. The
+original benchmark evaluator fills `quality` later on the `infra-bench` side.
+
+`sample_frames` is a registered generic operator and samples uniformly from duration, never from
+gold evidence. Workers choose ffmpeg when present, otherwise GStreamer; Jetson configurations may
+set `frame_sampler: gstreamer` and `gstreamer_converter: nvvidconv`. Centralized execution first
+moves raw chunks to the 4090 and samples there. Local reduction samples and invokes the lightweight
+VLM on each Orin, then transfers compact semantic evidence for final 4090 reasoning. All sampling,
+model, token, artifact, transfer, executor/site, API cost, and E2E measurements remain in trace/raw
+output.
+
 ## Open-ended SWE-bench semantic-switch experiment
 
 The `code_tasks` runtime connects an admitted SWE-bench case to the same Planner model interface

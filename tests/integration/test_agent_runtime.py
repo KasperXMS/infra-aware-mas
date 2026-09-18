@@ -370,6 +370,7 @@ async def test_distinct_agent_instructions_reach_backend(tmp_path: Path) -> None
     ("artifact_type", "input_modality"),
     [
         ("image/png", "image"),
+        ("video/mp4", "video"),
         ("text/plain; charset=utf-8", "text"),
         ("application/json", "text"),
         ("application/x-yaml", "text"),

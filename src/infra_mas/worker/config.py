@@ -28,6 +28,11 @@ class OpenAICompatibleBackendConfig(BaseModel):
     max_tokens: Annotated[int, Field(gt=0)] = 1024
     temperature: Annotated[float, Field(ge=0, le=2)] = 0.0
     verify_model: bool = True
+    video_transport: Literal["data_url", "file_url"] = "data_url"
+    input_cost_per_million_tokens_usd: Annotated[float, Field(ge=0)] = 0.0
+    output_cost_per_million_tokens_usd: Annotated[float, Field(ge=0)] = 0.0
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
+    output_format: Literal["text", "json_object"] = "text"
 
 
 class MockBackendConfig(BaseModel):
@@ -67,6 +72,10 @@ class WorkerConfig(BaseModel):
     host: NonEmptyString = "0.0.0.0"
     port: Annotated[int, Field(ge=1, le=65535)] = 9001
     artifact_root: Path = Path("data/artifacts")
+    ffmpeg_path: NonEmptyString = "ffmpeg"
+    gstreamer_path: NonEmptyString = "gst-launch-1.0"
+    frame_sampler: Literal["auto", "ffmpeg", "gstreamer"] = "auto"
+    gstreamer_converter: Literal["auto", "nvvidconv", "videoconvert"] = "auto"
     executors: Annotated[list[WorkerExecutorConfig], Field(min_length=1)]
 
     @classmethod
@@ -101,6 +110,15 @@ def build_worker_service(config: WorkerConfig, config_directory: Path) -> Worker
                 max_tokens=backend_config.max_tokens,
                 temperature=backend_config.temperature,
                 verify_model=backend_config.verify_model,
+                video_transport=backend_config.video_transport,
+                input_cost_per_million_tokens_usd=(
+                    backend_config.input_cost_per_million_tokens_usd
+                ),
+                output_cost_per_million_tokens_usd=(
+                    backend_config.output_cost_per_million_tokens_usd
+                ),
+                reasoning_effort=backend_config.reasoning_effort,
+                output_format=backend_config.output_format,
             )
         else:
             backend = MockBackend(
@@ -115,4 +133,8 @@ def build_worker_service(config: WorkerConfig, config_directory: Path) -> Worker
         worker_id=config.worker_id,
         artifact_store=ArtifactStore(artifact_root, config.worker_id),
         executors=executors,
+        ffmpeg_path=config.ffmpeg_path,
+        gstreamer_path=config.gstreamer_path,
+        frame_sampler=config.frame_sampler,
+        gstreamer_converter=config.gstreamer_converter,
     )

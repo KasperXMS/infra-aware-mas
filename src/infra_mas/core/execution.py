@@ -93,3 +93,19 @@ class ArtifactPullRequest(BaseModel):
     artifact: ArtifactRef
     source_worker_id: NonEmptyString
     source_endpoint: NonEmptyString
+    bandwidth_mbps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    rtt_ms: NonNegativeFloat = 0.0
+
+
+class SampleFramesRequest(BaseModel):
+    """Uniformly sample a video into one contact-sheet artifact on a Worker."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: NonEmptyString
+    input_artifact: ArtifactRef
+    output_artifact_id: NonEmptyString
+    duration_s: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    sample_count: Annotated[int, Field(ge=1, le=64)] = 20
+    columns: Annotated[int, Field(ge=1, le=16)] = 5
+    frame_width: Annotated[int, Field(ge=64, le=1920)] = 448

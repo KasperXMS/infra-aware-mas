@@ -8,8 +8,8 @@ import pytest
 
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ArtifactTransferError
-from infra_mas.core.execution import TransferResult
-from infra_mas.execution.transfer import TransferManager
+from infra_mas.core.execution import ArtifactPullRequest, TransferResult
+from infra_mas.execution.transfer import TransferManager, TransferProfile
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.tracing.recorder import TraceRecorder
 
@@ -24,9 +24,10 @@ class CountingTargetClient:
     def __init__(self, size_bytes: int) -> None:
         self.calls = 0
         self.size_bytes = size_bytes
+        self.last_request: ArtifactPullRequest | None = None
 
-    async def pull_artifact(self, request: object) -> TransferResult:
-        del request
+    async def pull_artifact(self, request: ArtifactPullRequest) -> TransferResult:
+        self.last_request = request
         self.calls += 1
         await asyncio.sleep(0.01)
         return TransferResult(bytes_transferred=self.size_bytes, transfer_ms=10)
@@ -90,3 +91,28 @@ async def test_concurrent_transfer_to_same_target_is_deduplicated(tmp_path: Path
     assert sum(result.bytes_transferred for result in results) == 4
     assert all(reference.locations == ["worker-a", "worker-b"] for reference in references)
     assert len(trace.path.read_text(encoding="utf-8").splitlines()) == 2
+
+
+async def test_network_profile_is_sent_to_worker_and_traced(tmp_path: Path) -> None:
+    target = CountingTargetClient(size_bytes=4)
+    clients = {
+        "worker-a": cast(WorkerClient, FakeSourceClient()),
+        "worker-b": cast(WorkerClient, target),
+    }
+    trace = TraceRecorder(tmp_path / "runs", "run-shaped")
+    manager = TransferManager(clients, trace, TransferProfile(10.0, 50.0))
+    artifact = ArtifactRef(
+        id="run-shaped/input-001",
+        artifact_type="video/mp4",
+        size_bytes=4,
+        locations=["worker-a"],
+    )
+
+    await manager.ensure_local(artifact, "worker-b", action_id="action")
+
+    assert target.last_request is not None
+    assert target.last_request.bandwidth_mbps == 10.0
+    assert target.last_request.rtt_ms == 50.0
+    trace_text = trace.path.read_text(encoding="utf-8")
+    assert '"bandwidth_mbps":10.0' in trace_text
+    assert '"rtt_ms":50.0' in trace_text

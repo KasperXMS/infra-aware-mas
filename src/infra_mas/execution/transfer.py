@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import dataclass
 from time import perf_counter
 
 from infra_mas.core.artifact import ArtifactRef
@@ -11,6 +12,20 @@ from infra_mas.core.trace import TraceSink
 from infra_mas.execution.worker_client import WorkerClient
 
 
+@dataclass(frozen=True, slots=True)
+class TransferProfile:
+    """Application-layer network constraint applied to each cross-Worker pull."""
+
+    bandwidth_mbps: float
+    rtt_ms: float
+
+    def __post_init__(self) -> None:
+        if self.bandwidth_mbps <= 0:
+            raise ValueError("bandwidth_mbps must be positive")
+        if self.rtt_ms < 0:
+            raise ValueError("rtt_ms must be non-negative")
+
+
 class TransferManager:
     """Instruct target Workers to pull artifacts without relaying bytes through Controller."""
 
@@ -18,9 +33,11 @@ class TransferManager:
         self,
         clients: Mapping[str, WorkerClient],
         trace: TraceSink,
+        profile: TransferProfile | None = None,
     ) -> None:
         self._clients = dict(clients)
         self._trace = trace
+        self._profile = profile
         self._locks: dict[tuple[str, str], asyncio.Lock] = {}
         self._completed: set[tuple[str, str]] = set()
         self._locks_guard = asyncio.Lock()
@@ -87,6 +104,8 @@ class TransferManager:
             target_worker_id=target_worker_id,
             expected_bytes=artifact.size_bytes,
             path="worker_to_worker",
+            bandwidth_mbps=(self._profile.bandwidth_mbps if self._profile else None),
+            rtt_ms=(self._profile.rtt_ms if self._profile else 0.0),
         )
         started_at = perf_counter()
         try:
@@ -95,6 +114,8 @@ class TransferManager:
                     artifact=artifact,
                     source_worker_id=source_worker_id,
                     source_endpoint=source.base_url,
+                    bandwidth_mbps=(self._profile.bandwidth_mbps if self._profile else None),
+                    rtt_ms=(self._profile.rtt_ms if self._profile else 0.0),
                 )
             )
             if result.bytes_transferred not in {0, artifact.size_bytes}:
@@ -113,6 +134,8 @@ class TransferManager:
                 bytes_transferred=result.bytes_transferred,
                 transfer_ms=result.transfer_ms,
                 path="worker_to_worker",
+                bandwidth_mbps=(self._profile.bandwidth_mbps if self._profile else None),
+                rtt_ms=(self._profile.rtt_ms if self._profile else 0.0),
                 success=True,
             )
             return result

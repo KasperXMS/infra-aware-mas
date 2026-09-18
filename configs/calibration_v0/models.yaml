@@ -1,0 +1,11 @@
+models:
+  local-video-vlm:
+    description: Generic lightweight vision-language evidence reducer on each Orin.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 8192
+  strong-video-vlm:
+    description: Strong vision-language and reasoning model on the dual-4090 host.
+    input_modalities: [text, image]
+    output_modalities: [text]
+    context_window: 131072

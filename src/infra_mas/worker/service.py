@@ -1,13 +1,20 @@
 """Worker execution service."""
 
-from collections.abc import Callable, Iterable
+import asyncio
+import io
+import math
+import shutil
+import tempfile
+from collections.abc import AsyncIterator, Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from time import perf_counter
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
+from PIL import Image, ImageDraw
 from pydantic import ValidationError
 
 from infra_mas.core.artifact import ArtifactRef
@@ -20,6 +27,7 @@ from infra_mas.core.execution import (
     ArtifactPullRequest,
     ExecutionRequest,
     ExecutionResult,
+    SampleFramesRequest,
     TransferResult,
     WorkerStatus,
 )
@@ -38,6 +46,51 @@ class WorkerExecutor:
 
 
 ArtifactIdFactory = Callable[[ExecutionRequest], str]
+
+
+def _compose_contact_sheet(
+    frame_paths: list[Path],
+    columns: int,
+    duration_s: float,
+) -> bytes:
+    """Pack fixed chronological samples into one labelled generic JPEG artifact."""
+    loaded: list[Image.Image] = []
+    try:
+        for path in frame_paths:
+            with Image.open(path) as image:
+                loaded.append(image.convert("RGB"))
+        if not loaded:
+            raise ExecutionFailedError("sample_frames cannot compose an empty contact sheet")
+        tile_width = max(image.width for image in loaded)
+        tile_height = max(image.height for image in loaded)
+        active_columns = min(columns, len(loaded))
+        rows = math.ceil(len(loaded) / active_columns)
+        label_height = 24
+        sheet = Image.new(
+            "RGB",
+            (active_columns * tile_width, rows * (tile_height + label_height)),
+            color="black",
+        )
+        draw = ImageDraw.Draw(sheet)
+        for index, image in enumerate(loaded):
+            column = index % active_columns
+            row = index // active_columns
+            x = column * tile_width
+            y = row * (tile_height + label_height)
+            sheet.paste(image, (x, y))
+            timestamp_s = duration_s * (index + 0.5) / len(loaded)
+            draw.text(
+                (x + 6, y + tile_height + 4),
+                f"sample {index + 1:02d} @ {timestamp_s:.0f} sec",
+                fill="white",
+            )
+        buffer = io.BytesIO()
+        sheet.save(buffer, format="JPEG", quality=90, optimize=True)
+        sheet.close()
+        return buffer.getvalue()
+    finally:
+        for image in loaded:
+            image.close()
 
 
 @runtime_checkable
@@ -60,6 +113,10 @@ class WorkerService:
         executors: Iterable[WorkerExecutor],
         artifact_id_factory: ArtifactIdFactory | None = None,
         transfer_client: httpx.AsyncClient | None = None,
+        ffmpeg_path: str = "ffmpeg",
+        gstreamer_path: str = "gst-launch-1.0",
+        frame_sampler: Literal["auto", "ffmpeg", "gstreamer"] = "auto",
+        gstreamer_converter: Literal["auto", "nvvidconv", "videoconvert"] = "auto",
     ) -> None:
         if not worker_id.strip():
             raise ValueError("worker_id must not be empty")
@@ -80,6 +137,10 @@ class WorkerService:
         self._executors = {executor.id: executor for executor in executor_list}
         self._artifact_id_factory = artifact_id_factory or self._default_artifact_id
         self._transfer_client = transfer_client
+        self._ffmpeg_path = ffmpeg_path
+        self._gstreamer_path = gstreamer_path
+        self._frame_sampler = frame_sampler
+        self._gstreamer_converter = gstreamer_converter
 
     @property
     def artifact_store(self) -> ArtifactStore:
@@ -140,6 +201,11 @@ class WorkerService:
             output_artifacts=[output],
             queue_ms=0.0,
             service_ms=model_result.latency_ms,
+            metadata={
+                "input_tokens": model_result.input_tokens,
+                "output_tokens": model_result.output_tokens,
+                "api_cost_usd": model_result.api_cost_usd,
+            },
         )
 
     async def pull_artifact(self, request: ArtifactPullRequest) -> TransferResult:
@@ -158,6 +224,8 @@ class WorkerService:
         url = f"{request.source_endpoint.rstrip('/')}/artifacts/{quote(artifact.id, safe='/')}"
         started_at = perf_counter()
         try:
+            if request.rtt_ms:
+                await asyncio.sleep(request.rtt_ms / 1000.0)
             if self._transfer_client is None:
                 async with httpx.AsyncClient(timeout=300.0) as client:
                     uploaded = await self._pull_with_client(client, url, request)
@@ -185,6 +253,118 @@ class WorkerService:
             transfer_ms=(perf_counter() - started_at) * 1000,
         )
 
+    async def sample_frames(self, request: SampleFramesRequest) -> ExecutionResult:
+        """Run fixed uniform sampling locally and return JPEG frame artifacts."""
+        source = await self._artifact_store.get_path(request.input_artifact.id)
+        if not request.input_artifact.artifact_type.startswith("video/"):
+            raise ExecutionFailedError("sample_frames requires a video artifact")
+        started_at = perf_counter()
+        sampler = self._frame_sampler
+        if sampler == "auto":
+            if shutil.which(self._ffmpeg_path):
+                sampler = "ffmpeg"
+            elif shutil.which(self._gstreamer_path):
+                sampler = "gstreamer"
+            else:
+                raise ExecutionFailedError("neither ffmpeg nor gst-launch-1.0 is available")
+        with tempfile.TemporaryDirectory(prefix="infra-mas-frames-") as directory:
+            frame_pattern = str(Path(directory) / "frame-%03d.jpg")
+            fps = request.sample_count / request.duration_s
+            if sampler == "ffmpeg":
+                process = await asyncio.create_subprocess_exec(
+                    self._ffmpeg_path,
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-i",
+                    str(source),
+                    "-vf",
+                    f"fps={fps:.12f},scale={request.frame_width}:-2",
+                    "-frames:v",
+                    str(request.sample_count),
+                    "-q:v",
+                    "2",
+                    frame_pattern,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            else:
+                # uridecodebin autoplugs NVIDIA decode on Jetson when its plugins are
+                # available. videorate then applies the same duration-derived fixed rate.
+                from fractions import Fraction
+
+                rate = Fraction(fps).limit_denominator(100_000)
+                converter = self._gstreamer_converter
+                if converter == "auto":
+                    inspect = shutil.which("gst-inspect-1.0")
+                    if inspect is not None:
+                        probe = await asyncio.create_subprocess_exec(
+                            inspect,
+                            "nvvidconv",
+                            stdout=asyncio.subprocess.DEVNULL,
+                            stderr=asyncio.subprocess.DEVNULL,
+                        )
+                        converter = (
+                            "nvvidconv" if await probe.wait() == 0 else "videoconvert"
+                        )
+                    else:
+                        converter = "videoconvert"
+                process = await asyncio.create_subprocess_exec(
+                    self._gstreamer_path,
+                    "-q",
+                    "uridecodebin",
+                    f"uri={source.resolve().as_uri()}",
+                    "!",
+                    converter,
+                    "!",
+                    f"video/x-raw,width={request.frame_width}",
+                    "!",
+                    "videorate",
+                    "!",
+                    f"video/x-raw,framerate={rate.numerator}/{rate.denominator}",
+                    "!",
+                    "jpegenc",
+                    "!",
+                    "multifilesink",
+                    f"location={frame_pattern}",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            _, stderr = await process.communicate()
+            frames = sorted(Path(directory).glob("frame-*.jpg"))
+            if process.returncode != 0 or len(frames) < request.sample_count:
+                detail = stderr.decode("utf-8", errors="replace").strip()
+                raise ExecutionFailedError(
+                    f"{sampler} sample_frames produced {len(frames)}/"
+                    f"{request.sample_count} frames: {detail}"
+                )
+            contact_sheet = await asyncio.to_thread(
+                _compose_contact_sheet,
+                frames[: request.sample_count],
+                request.columns,
+                request.duration_s,
+            )
+            output = await self._artifact_store.put_bytes(
+                request.output_artifact_id,
+                contact_sheet,
+                "image/jpeg",
+            )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:sample_frames",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "sample_frames",
+                "sampler": sampler,
+                "sample_count": request.sample_count,
+                "columns": request.columns,
+                "layout": "chronological_contact_sheet",
+            },
+        )
+
     async def _pull_with_client(
         self,
         client: httpx.AsyncClient,
@@ -197,11 +377,23 @@ class WorkerService:
                 raise ArtifactTransferError(
                     f"source Worker returned HTTP {response.status_code}: {response.text}"
                 )
+            chunks = response.aiter_bytes()
+            if request.bandwidth_mbps is not None:
+                chunks = self._throttled_chunks(chunks, request.bandwidth_mbps)
             return await self._artifact_store.put_stream(
                 request.artifact.id,
-                response.aiter_bytes(),
+                chunks,
                 request.artifact.artifact_type,
             )
+
+    @staticmethod
+    async def _throttled_chunks(
+        chunks: AsyncIterator[bytes], bandwidth_mbps: float
+    ) -> AsyncIterator[bytes]:
+        bytes_per_second = bandwidth_mbps * 1_000_000 / 8.0
+        async for chunk in chunks:
+            yield chunk
+            await asyncio.sleep(len(chunk) / bytes_per_second)
 
     def _resolve_executor(self, capability: str, executor_id: str | None) -> WorkerExecutor:
         if executor_id is not None:

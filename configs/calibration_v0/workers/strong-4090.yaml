@@ -1,0 +1,18 @@
+worker_id: strong-4090
+host: 0.0.0.0
+port: 9001
+artifact_root: /home/super/xiaoming/calibration_v0/worker/artifacts
+frame_sampler: ffmpeg
+executors:
+  - id: strong-4090-vlm
+    capability: visual_understanding
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3.8:27b
+      api_key_env: null
+      timeout_seconds: 1800
+      max_tokens: 1024
+      temperature: 0
+      reasoning_effort: none
+      output_format: json_object

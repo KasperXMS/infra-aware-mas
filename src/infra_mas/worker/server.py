@@ -16,6 +16,7 @@ from infra_mas.core.execution import (
     ExecutionRequest,
     ExecutionResult,
     HealthResponse,
+    SampleFramesRequest,
     TransferResult,
     WorkerStatus,
 )
@@ -91,10 +92,24 @@ def create_app(service: WorkerService) -> FastAPI:
         except ArtifactTransferError as error:
             raise HTTPException(status_code=502, detail=str(error)) from error
 
+    async def sample_frames(request: SampleFramesRequest) -> ExecutionResult:
+        try:
+            return await service.sample_frames(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
     app.add_api_route("/health", health, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/ready", ready, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/status", status, methods=["GET"], response_model=WorkerStatus)
     app.add_api_route("/execute", execute, methods=["POST"], response_model=ExecutionResult)
+    app.add_api_route(
+        "/operators/sample-frames",
+        sample_frames,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
     app.add_api_route("/artifacts/{artifact_id:path}", download_artifact, methods=["GET"])
     app.add_api_route("/artifacts", upload_artifact, methods=["POST"], response_model=ArtifactRef)
     app.add_api_route(

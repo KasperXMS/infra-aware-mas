@@ -22,6 +22,7 @@ from infra_mas.core.execution import (
     ExecutionRequest,
     ExecutionResult,
     HealthResponse,
+    SampleFramesRequest,
     TransferResult,
     WorkerStatus,
 )
@@ -154,6 +155,16 @@ class WorkerClient:
             json_payload=request.model_dump(mode="json"),
         )
         return TransferResult.model_validate(response.json())
+
+    async def sample_frames(self, request: SampleFramesRequest) -> ExecutionResult:
+        """Execute generic fixed uniform frame sampling on this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/sample-frames",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
 
     async def _request(
         self,

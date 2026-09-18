@@ -4,7 +4,12 @@ from collections.abc import Callable
 from uuid import uuid4
 
 from infra_mas.core.artifact import ArtifactRef
-from infra_mas.core.execution import ExecutionRequest, ExecutionResult, InvocationSpec
+from infra_mas.core.execution import (
+    ExecutionRequest,
+    ExecutionResult,
+    InvocationSpec,
+    SampleFramesRequest,
+)
 from infra_mas.core.trace import TraceSink
 from infra_mas.execution.manager import ExecutionManager
 from infra_mas.runtime.agent_registry import AgentRegistry
@@ -129,6 +134,44 @@ class AgentRuntime:
         )
         return await self._execution_manager.execute(request, executor)
 
+    async def sample_frames(
+        self,
+        artifact: ArtifactRef,
+        target_worker_id: str,
+        *,
+        duration_s: float,
+        sample_count: int = 20,
+        columns: int = 5,
+        frame_width: int = 448,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Execute the registered generic fixed-time sampling operator on one Worker."""
+        request_id = self._request_id_factory()
+        await self._trace.record(
+            "execution.request",
+            action_id=request_id,
+            parent_action_id=parent_action_id,
+            request_id=request_id,
+            agent="sample_frames",
+            capability="video_preprocessing",
+            semantic_operator="sample_frames",
+            tool="sample_frames",
+            task="Uniformly sample frames into a contact sheet.",
+            input_artifacts=[artifact.id],
+        )
+        return await self._execution_manager.sample_frames(
+            SampleFramesRequest(
+                request_id=request_id,
+                input_artifact=artifact,
+                output_artifact_id=f"{request_id.rsplit('/', 1)[0]}/frames-{uuid4().hex}.jpg",
+                duration_s=duration_s,
+                sample_count=sample_count,
+                columns=columns,
+                frame_width=frame_width,
+            ),
+            target_worker_id,
+        )
+
     @staticmethod
     def _default_request_id() -> str:
         return f"request-{uuid4().hex}"
@@ -138,6 +181,8 @@ class AgentRuntime:
         media_type = artifact_type.partition(";")[0].strip().lower()
         if media_type.startswith("image/"):
             return "image"
+        if media_type.startswith("video/"):
+            return "video"
         if (
             media_type.startswith("text/")
             or media_type in _TEXT_APPLICATION_TYPES

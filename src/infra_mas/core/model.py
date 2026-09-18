@@ -36,3 +36,6 @@ class ModelResult(BaseModel):
 
     output_text: NonEmptyString
     latency_ms: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    input_tokens: Annotated[int, Field(ge=0)] = 0
+    output_tokens: Annotated[int, Field(ge=0)] = 0
+    api_cost_usd: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0.0

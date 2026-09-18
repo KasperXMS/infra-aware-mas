@@ -9,6 +9,7 @@ from typing import cast
 
 from infra_mas.bench import run_benchmark_case
 from infra_mas.calibration import run_calibration_sweep
+from infra_mas.calibration_v0 import run_calibration_v0_sweep
 from infra_mas.planner.context import InfrastructureVisibility
 from infra_mas.semantic_switch import write_v1_semantic_switch_report
 from infra_mas.stability import write_v1_repeat_report
@@ -31,6 +32,16 @@ def build_calibration_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--sweep", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    return parser
+
+
+def build_calibration_v0_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="infra-mas-bench calibrate-v0",
+        description="Run the two fixed long-video calibration_v0 references",
+    )
+    parser.add_argument("--sweep", type=Path, required=True)
+    parser.add_argument("--output", type=Path, default=Path("runs/calibration_v0"))
     return parser
 
 
@@ -57,6 +68,13 @@ def build_semantic_switch_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "calibrate-v0":
+        args = build_calibration_v0_parser().parse_args(sys.argv[2:])
+        payload = asyncio.run(run_calibration_v0_sweep(args.sweep, args.output))
+        rendered = json.dumps(payload, ensure_ascii=False, indent=2)
+        encoding = sys.stdout.encoding or "utf-8"
+        print(rendered.encode(encoding, errors="backslashreplace").decode(encoding))
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "calibrate":
         args = build_calibration_parser().parse_args(sys.argv[2:])
         payload = asyncio.run(run_calibration_sweep(args.sweep, args.output))
