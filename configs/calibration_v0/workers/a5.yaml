@@ -2,6 +2,9 @@ worker_id: a5
 host: 0.0.0.0
 port: 9001
 artifact_root: ../../../data/calibration_v0/a5/artifacts
+local_source_roots:
+  - /home/edge/xiaoming/calibration_v0/artifacts
+  - /home/edge/xiaoming/calibration_v0/candidates
 frame_sampler: gstreamer
 gstreamer_converter: nvvidconv
 executors:

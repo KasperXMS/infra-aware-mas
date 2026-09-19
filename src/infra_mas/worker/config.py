@@ -76,6 +76,7 @@ class WorkerConfig(BaseModel):
     gstreamer_path: NonEmptyString = "gst-launch-1.0"
     frame_sampler: Literal["auto", "ffmpeg", "gstreamer"] = "auto"
     gstreamer_converter: Literal["auto", "nvvidconv", "videoconvert"] = "auto"
+    local_source_roots: Annotated[list[Path], Field(default_factory=list)]
     executors: Annotated[list[WorkerExecutorConfig], Field(min_length=1)]
 
     @classmethod
@@ -90,6 +91,10 @@ def build_worker_service(config: WorkerConfig, config_directory: Path) -> Worker
     artifact_root = config.artifact_root
     if not artifact_root.is_absolute():
         artifact_root = config_directory / artifact_root
+    local_source_roots = [
+        path if path.is_absolute() else config_directory / path
+        for path in config.local_source_roots
+    ]
 
     executors: list[WorkerExecutor] = []
     for entry in config.executors:
@@ -137,4 +142,5 @@ def build_worker_service(config: WorkerConfig, config_directory: Path) -> Worker
         gstreamer_path=config.gstreamer_path,
         frame_sampler=config.frame_sampler,
         gstreamer_converter=config.gstreamer_converter,
+        local_source_roots=local_source_roots,
     )

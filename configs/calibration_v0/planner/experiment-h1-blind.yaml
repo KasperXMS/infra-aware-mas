@@ -7,6 +7,7 @@ resources_config: resources-h1.yaml
 runs_root: ../../../runs/calibration_v0/planner
 temporary_root: ../../../.runtime/calibration_v0/planner
 infrastructure_visibility: none
+input_source: worker_local
 worker_timeout_seconds: 1800
 max_turns: 10
 scheduler: {type: locality_aware}

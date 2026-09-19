@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import shutil
 from collections.abc import AsyncIterable
 from pathlib import Path, PurePosixPath
 from uuid import uuid4
@@ -83,6 +84,27 @@ class ArtifactStore:
                 await asyncio.to_thread(temporary.unlink)
 
         return self._ref(artifact_id, artifact_type, size_bytes)
+
+    async def import_file(
+        self,
+        artifact_id: str,
+        source: Path,
+        artifact_type: str = "application/octet-stream",
+    ) -> ArtifactRef:
+        """Atomically import a file already present on the Worker filesystem."""
+        source = source.resolve()
+        if not await asyncio.to_thread(source.is_file):
+            raise ArtifactNotFoundError(f"local artifact source not found: {source}")
+        target = self._path_for(artifact_id)
+        await asyncio.to_thread(target.parent.mkdir, parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
+        try:
+            await asyncio.to_thread(shutil.copyfile, source, temporary)
+            await asyncio.to_thread(os.replace, temporary, target)
+        finally:
+            if temporary.exists():
+                await asyncio.to_thread(temporary.unlink)
+        return self._ref(artifact_id, artifact_type, target.stat().st_size)
 
     async def get_path(self, artifact_id: str) -> Path:
         """Resolve an artifact ID to an existing worker-local path."""

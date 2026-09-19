@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -8,6 +9,7 @@ from infra_mas.experiment import PreflightResult
 from infra_mas.planner_calibration_v0 import (
     PlannerTask795,
     preflight_planner_jetsons,
+    run_planner_experiment_cell,
     validate_planner_experiment_cells,
 )
 
@@ -54,6 +56,52 @@ def test_task_795_preserves_three_original_mp4_placements() -> None:
     )
     assert task.frames_per_chunk == 12
     assert task.frame_width == 320
+    assert [item.size_bytes for item in task.artifacts] == [
+        93677242,
+        99396939,
+        89370679,
+    ]
+
+
+async def test_planner_cell_runner_binds_the_three_worker_local_mp4s(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    observed: dict[str, Any] = {}
+
+    async def fake_run(
+        config_path: Path,
+        task: str,
+        inputs: list[Path],
+        **kwargs: object,
+    ) -> tuple[str, Path]:
+        observed.update(
+            config_path=config_path,
+            task=task,
+            inputs=inputs,
+            kwargs=kwargs,
+        )
+        return "answer", tmp_path / "run"
+
+    monkeypatch.setattr(
+        "infra_mas.planner_calibration_v0.run_blind_experiment", fake_run
+    )
+    answer, _ = await run_planner_experiment_cell(_configs()[0], run_id="planner-test")
+
+    assert answer == "answer"
+    assert [path.name for path in observed["inputs"]] == [
+        "chunk-0.mp4",
+        "chunk-1.mp4",
+        "chunk-2.mp4",
+    ]
+    kwargs = observed["kwargs"]
+    assert kwargs["input_workers"] == ["a4", "a5", "a28"]
+    assert kwargs["artifact_ids"] == [
+        "video_mme:795:chunk:0",
+        "video_mme:795:chunk:1",
+        "video_mme:795:chunk:2",
+    ]
+    assert kwargs["input_expected_sizes"] == [93677242, 99396939, 89370679]
 
 
 async def test_preflight_builds_jetson_only_registry_and_marks_4090_unchecked(
@@ -73,8 +121,14 @@ async def test_preflight_builds_jetson_only_registry_and_marks_4090_unchecked(
         registry: ExecutorRegistry, clients: object
     ) -> PreflightResult:
         del registry, clients
+        operators = [
+            "sample_frames",
+            "make_contact_sheet",
+            "aggregate_artifacts",
+        ]
         return PreflightResult(
-            workers={"a4": ["a4-vlm"], "a5": ["a5-vlm"], "a28": ["a28-vlm"]}
+            workers={"a4": ["a4-vlm"], "a5": ["a5-vlm"], "a28": ["a28-vlm"]},
+            operators={worker_id: operators for worker_id in ("a4", "a5", "a28")},
         )
 
     async def fake_close(clients: object) -> None:
@@ -95,4 +149,10 @@ async def test_preflight_builds_jetson_only_registry_and_marks_4090_unchecked(
     assert observed_workers == {"a4", "a5", "a28"}
     assert report.strong_4090["checked"] is False
     assert report.strong_4090["status"] == "expected_unavailable"
-    assert report.capability_validation["status"] == "execution_blocked"
+    assert report.capability_validation["status"] == "ready_for_full_preflight"
+    assert report.capability_validation["missing_jetson_operators"] == {}
+    assert report.capability_validation["missing_optional_jetson_operators"] == {
+        "a4": ["extract_clip"],
+        "a5": ["extract_clip"],
+        "a28": ["extract_clip"],
+    }

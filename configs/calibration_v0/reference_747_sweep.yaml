@@ -1,0 +1,47 @@
+experiment_config: experiment.yaml
+local_model_id: local-video-vlm
+strong_model_id: strong-video-vlm
+input_source: worker_local
+input_workers: [a4, a5, a28]
+eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, strong-4090-vlm]
+warmup_runs: 1
+repeats: 3
+sample_count_per_chunk: 12
+frame_width: 320
+run_prefix: calibration-v0-747-reference
+
+tasks:
+  - task_id: video_mme:747
+    evaluator_id: video_mme_multiple_choice
+    instruction: >-
+      Review the complete video across all three chronological chunks. 747-1: What happened
+      to the team on the counterattack after Sabonis' first steal? A: Sabonis finishes the
+      pick-and-roll. B: A teammate hit a three. C: Sabonis pass is broken up. D: Teammate
+      singles and fails. 747-2: How many athletic goals did LIT score from the last technical
+      statistic on shooting percentage before halftime to the end of the half? A: 4. B: 2.
+      C: 1. D: 6. 747-3: How many timeouts does the HUN actively consume throughout the game?
+      A: 2. B: 5. C: 7. D: 3. Return only a JSON object mapping each question ID to one
+      option letter.
+    inputs:
+      - artifact_id: video_mme:747:chunk:0
+        path: /home/edge/xiaoming/calibration_v0/candidates/747/chunk-0.webm
+        duration_s: 1091.341
+        expected_size_bytes: 108644854
+      - artifact_id: video_mme:747:chunk:1
+        path: /home/edge/xiaoming/calibration_v0/candidates/747/chunk-1.webm
+        duration_s: 1092.547
+        expected_size_bytes: 111078348
+      - artifact_id: video_mme:747:chunk:2
+        path: /home/edge/xiaoming/calibration_v0/candidates/747/chunk-2.webm
+        duration_s: 1093.755
+        expected_size_bytes: 110353684
+
+worlds:
+  - world_id: H1_distributed_constrained
+    bandwidth_mbps: 3.0
+    rtt_ms: 50.0
+  - world_id: H2_distributed_favorable
+    bandwidth_mbps: 100.0
+    rtt_ms: 0.0
+
+workflows: [centralized_raw, local_reduction]

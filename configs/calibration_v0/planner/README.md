@@ -29,12 +29,30 @@ uv run infra-mas-bench check-planner-v0 \
 Add `--jetson-preflight` to check only A4/A5/A28. That preflight deliberately does not construct a
 client for the 4090 Worker and records it as `expected_unavailable`.
 
-## Current execution blocker
+## Execution contract
 
-These are prepared experiment configurations, not authorization to run the Planner. The unchanged
-open-ended Planner exposes `spawn_agent` and `inspect_artifact`, but not the registered
-`sample_frames` operator. The deployed Ollama VLM path also does not accept raw MP4 input. Therefore
-the current benchmark bridge cannot consume these pre-existing Worker-local paths as if they were
-controller-local uploads. Validation reports `execution_blocked`; it does not replace the MP4s with
-preprocessed images, change the task, or silently choose a data-processing path. No Planner run
-should be started until those capability gaps are addressed in a separately authorized task.
+The Planner receives logical artifact IDs and the generic `sample_frames`, `make_contact_sheet`,
+`extract_clip`, `process_local_artifact`, and `aggregate_artifacts` actions. It never receives a
+Worker-selection argument. The runtime chooses a capable Worker by artifact locality and performs
+any required Worker-to-Worker transfer through the normal data plane. `sample_frames` can probe the
+video duration on the owning Worker, so the Planner may call it with only an artifact ID.
+
+The experiment YAMLs use `input_source: worker_local`. At run setup, each Orin imports its existing
+MP4 from the allowlisted `/home/edge/xiaoming/calibration_v0/artifacts` tree into its ArtifactStore;
+the controller sends only path/metadata in this setup phase, and video bytes do not pass through the
+controller. Binding is traced before workflow E2E timing begins.
+
+Planner-visible input, output, and action IDs use a fresh opaque namespace unrelated to the trace
+directory/run ID. Meaningful experiment IDs remain in controller-side config and trace metadata but
+cannot reveal the world or blind/aware arm through ArtifactRef IDs.
+
+After deploying the matching Worker code/config and completing a full four-Worker preflight, one
+cell can be started explicitly with:
+
+```bash
+uv run infra-mas-bench run-planner-v0 \
+  --manifest configs/calibration_v0/planner/795-h1-blind.yaml \
+  --run-id planner-task-run-r1
+```
+
+Configuration preparation and Jetson-only preflight do not run the Planner or contact the 4090.

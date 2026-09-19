@@ -189,6 +189,7 @@ class PlannerContext:
     planning_ledger: PlanningLedger | None = None
     resource_provider: ResourceProvider | None = None
     infrastructure_visibility: InfrastructureVisibility = "none"
+    action_namespace: str | None = None
     _action_counter: int = field(default=0, init=False, repr=False)
     _action_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
@@ -205,6 +206,10 @@ class PlannerContext:
             raise ValueError(
                 f"{self.infrastructure_visibility} visibility requires a ResourceProvider"
             )
+        if self.action_namespace is None:
+            self.action_namespace = self.trace.run_id
+        elif not self.action_namespace.strip():
+            raise ValueError("action_namespace must not be empty")
 
     @property
     def resource_aware(self) -> bool:
@@ -214,7 +219,8 @@ class PlannerContext:
     @property
     def coordinator_action_id(self) -> str:
         """Return the stable parent action for planner decisions in this run."""
-        return f"{self.trace.run_id}/coordinator"
+        assert self.action_namespace is not None
+        return f"{self.action_namespace}/coordinator"
 
     async def next_action_id(self, prefix: str) -> str:
         """Create a deterministic, concurrency-safe action ID within the run."""
@@ -223,4 +229,5 @@ class PlannerContext:
         async with self._action_lock:
             self._action_counter += 1
             sequence = self._action_counter
-        return f"{self.trace.run_id}/{prefix}-{sequence:04d}"
+        assert self.action_namespace is not None
+        return f"{self.action_namespace}/{prefix}-{sequence:04d}"

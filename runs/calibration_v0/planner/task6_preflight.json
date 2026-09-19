@@ -21,20 +21,37 @@
     "reason": "Task 6 preflight is intentionally Jetson-only"
   },
   "capability_validation": {
-    "status": "execution_blocked",
+    "status": "ready_for_full_preflight",
     "raw_artifact_type": "video/mp4",
     "planner_tools": [
       "spawn_agent",
-      "inspect_artifact"
+      "inspect_artifact",
+      "sample_frames",
+      "make_contact_sheet",
+      "extract_clip",
+      "process_local_artifact",
+      "aggregate_artifacts"
     ],
-    "missing_planner_operator": "sample_frames",
-    "configured_model_input_modalities": [
+    "missing_jetson_operators": {},
+    "missing_optional_jetson_operators": {
+      "a28": [
+        "extract_clip"
+      ],
+      "a4": [
+        "extract_clip"
+      ],
+      "a5": [
+        "extract_clip"
+      ]
+    },
+    "strong_model_input_modalities": [
       "text",
-      "image"
+      "image",
+      "video"
     ],
-    "direct_video_supported": false,
+    "direct_video_configured": true,
     "artifact_binding": "worker_local_paths",
-    "worker_local_source_binding_supported": false,
-    "reason": "The unchanged open-ended Planner cannot invoke sample_frames, and the deployed Ollama VLM path does not accept raw MP4 input. The current benchmark bridge also materializes controller-local source paths rather than binding pre-existing Worker-local files. Config and placement validation passed, but execution must remain blocked without changing the Planner/runtime contract."
+    "worker_local_source_binding_supported": true,
+    "reason": "Jetson actions required by the raw, visual, and semantic calibration paths and worker-local binding are ready; optional actions may depend on deployed binaries. The strong Worker remains deliberately unchecked in this Jetson-only preflight."
   }
 }

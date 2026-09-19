@@ -1,9 +1,9 @@
 """Planner-free reference workflows for the long-video calibration_v0 experiment.
 
-Both references are expressed solely as the existing generic ``invoke_model`` operator.
-The scheduler therefore retains responsibility for physical placement: a replicated local
-video model follows each single input chunk to its Orin, while the strong model has one
-4090 replica and causes normal Worker-to-Worker transfers.
+The references use only the generic ``sample_frames`` and ``invoke_model`` operators.
+The scheduler therefore retains responsibility for physical placement: sampling can follow
+each input chunk to its Orin, while the strong model has one 4090 replica and causes normal
+Worker-to-Worker transfers of raw chunks, contact sheets, or semantic evidence.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from infra_mas.execution.transfer import TransferManager, TransferProfile
 from infra_mas.execution.worker_client import WorkerClient
 from infra_mas.experiment import (
     BlindExperimentConfig,
+    bind_placed_inputs,
     build_scheduler,
     close_worker_clients,
     create_worker_clients,
@@ -49,11 +50,16 @@ from infra_mas.tracing.recorder import TraceRecorder
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
-CalibrationV0Workflow = Literal["centralized_raw", "local_reduction"]
+CalibrationV0Workflow = Literal[
+    "centralized_raw",
+    "local_reduction",
+    "visual_reduction",
+]
 CALIBRATION_V0_WORKFLOWS: tuple[CalibrationV0Workflow, ...] = (
     "centralized_raw",
     "local_reduction",
 )
+MEASUREMENT_PROTOCOL = "steady_state_1_warmup_3_measured_v1"
 
 
 class InvocationRuntime(Protocol):
@@ -64,7 +70,7 @@ class InvocationRuntime(Protocol):
         parent_action_id: str | None = None,
     ) -> ExecutionResult: ...
 
-    async def sample_frames(
+    async def sample_frames_on_worker(
         self,
         artifact: ArtifactRef,
         target_worker_id: str,
@@ -87,11 +93,22 @@ class ReferenceWorkflowResult(BaseModel):
     final_artifact: ArtifactRef
     raw_artifact_bytes: int = Field(ge=0)
     reduced_artifact_bytes: int = Field(ge=0)
+    reduced_visual_bytes: int = Field(ge=0)
+    semantic_evidence_bytes: int = Field(ge=0)
     local_service_ms: float = Field(ge=0)
     remote_service_ms: float = Field(ge=0)
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
     api_cost_usd: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_reduced_byte_categories(self) -> ReferenceWorkflowResult:
+        categorized = self.reduced_visual_bytes + self.semantic_evidence_bytes
+        if self.reduced_artifact_bytes != categorized:
+            raise ValueError(
+                "reduced_artifact_bytes must equal visual plus semantic evidence bytes"
+            )
+        return self
 
 
 class CalibrationV0Input(BaseModel):
@@ -100,6 +117,7 @@ class CalibrationV0Input(BaseModel):
     artifact_id: NonEmptyString
     path: Path
     duration_s: float = Field(gt=0.0)
+    expected_size_bytes: int | None = Field(default=None, gt=0)
 
 
 class CalibrationV0Task(BaseModel):
@@ -137,10 +155,14 @@ class CalibrationV0SweepConfig(BaseModel):
     strong_model_id: NonEmptyString
     input_workers: Annotated[list[NonEmptyString], Field(min_length=3, max_length=3)]
     eligible_executor_ids: Annotated[list[NonEmptyString], Field(min_length=4)]
+    input_source: Literal["controller_upload", "worker_local"] = "controller_upload"
     tasks: Annotated[list[CalibrationV0Task], Field(min_length=1, max_length=2)]
     worlds: Annotated[list[CalibrationV0World], Field(min_length=2, max_length=2)]
-    workflows: list[CalibrationV0Workflow] = list(CALIBRATION_V0_WORKFLOWS)
-    repeats: int = Field(default=3, ge=3)
+    workflows: Annotated[list[CalibrationV0Workflow], Field(min_length=1)] = list(
+        CALIBRATION_V0_WORKFLOWS
+    )
+    warmup_runs: Literal[1] = 1
+    repeats: Literal[3] = 3
     sample_count_per_chunk: int = Field(default=12, ge=1, le=64)
     frame_width: int = Field(default=320, ge=64, le=1920)
     run_prefix: NonEmptyString = "calibration-v0"
@@ -151,8 +173,8 @@ class CalibrationV0SweepConfig(BaseModel):
             raise ValueError("the three input_workers must be distinct")
         if len(self.eligible_executor_ids) != len(set(self.eligible_executor_ids)):
             raise ValueError("eligible_executor_ids must be unique")
-        if self.workflows != list(CALIBRATION_V0_WORKFLOWS):
-            raise ValueError("workflows must be [centralized_raw, local_reduction]")
+        if len(self.workflows) != len(set(self.workflows)):
+            raise ValueError("workflows must be unique")
         by_id = {world.world_id: world for world in self.worlds}
         if set(by_id) != {
             "H1_distributed_constrained",
@@ -180,7 +202,7 @@ def build_video_task_interaction(
     chunks: list[ArtifactRef],
     evaluator_id: str,
 ) -> TaskInteractionSpec:
-    """Build and validate the generic operator contract used by both references."""
+    """Build and validate the generic operator contract used by all references."""
     interaction = TaskInteractionSpec(
         task_id=task_id,
         objective=objective,
@@ -207,7 +229,10 @@ def build_video_task_interaction(
             ObservationSpec(
                 observation_id="final_answer",
                 produced_by=["invoke_model"],
-                description="Answer produced from raw chunks or reduced evidence.",
+                description=(
+                    "Answer produced from raw chunks, reduced visual artifacts, or semantic "
+                    "evidence."
+                ),
             ),
         ],
         runtime_verifier=RuntimeVerifierSpec(level="none"),
@@ -266,7 +291,7 @@ async def execute_video_reference_workflow(
         else:
             sampling = await asyncio.gather(
                 *(
-                    runtime.sample_frames(
+                    runtime.sample_frames_on_worker(
                         artifact,
                         reasoning_worker_id,
                         duration_s=chunk_durations_s[index],
@@ -303,8 +328,61 @@ async def execute_video_reference_workflow(
             final_artifact=result.output_artifacts[0],
             raw_artifact_bytes=raw_bytes,
             reduced_artifact_bytes=0,
+            reduced_visual_bytes=0,
+            semantic_evidence_bytes=0,
             local_service_ms=0.0,
             remote_service_ms=result.service_ms,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            api_cost_usd=api_cost,
+        )
+
+    if workflow_id == "visual_reduction":
+        sampling = await asyncio.gather(
+            *(
+                runtime.sample_frames_on_worker(
+                    artifact,
+                    artifact.locations[0],
+                    duration_s=chunk_durations_s[index],
+                    sample_count=sample_count,
+                    frame_width=frame_width,
+                )
+                for index, artifact in enumerate(raw_video_chunks)
+            )
+        )
+        visual_artifacts = [
+            artifact for sampled in sampling for artifact in sampled.output_artifacts
+        ]
+        synthesis = await runtime.invoke(
+            InvocationSpec(
+                model_id=strong_model_id,
+                role="calibration-v0-visual-reduction-reasoning",
+                instructions=(
+                    "Analyze the three chronological fixed-time contact sheets. Treat each "
+                    "sheet as uniformly sampled visual evidence from one consecutive video "
+                    "chunk, reconcile evidence across time spans, and return only the exact "
+                    "JSON object requested by the task, without explanation."
+                ),
+                task=task,
+                input_artifacts=visual_artifacts,
+            )
+        )
+        executions = [*sampling, synthesis]
+        input_tokens, output_tokens, api_cost = _usage(executions)
+        return ReferenceWorkflowResult(
+            workflow_id=workflow_id,
+            executions=executions,
+            final_artifact=synthesis.output_artifacts[0],
+            raw_artifact_bytes=raw_bytes,
+            reduced_artifact_bytes=sum(
+                artifact.size_bytes for artifact in visual_artifacts
+            ),
+            reduced_visual_bytes=sum(
+                artifact.size_bytes for artifact in visual_artifacts
+            ),
+            semantic_evidence_bytes=0,
+            local_service_ms=sum(result.service_ms for result in sampling),
+            remote_service_ms=synthesis.service_ms,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             api_cost_usd=api_cost,
@@ -313,7 +391,7 @@ async def execute_video_reference_workflow(
     async def reduce_chunk(
         index: int, artifact: ArtifactRef
     ) -> tuple[ExecutionResult, ExecutionResult]:
-        sampled = await runtime.sample_frames(
+        sampled = await runtime.sample_frames_on_worker(
             artifact,
             artifact.locations[0],
             duration_s=chunk_durations_s[index],
@@ -368,6 +446,10 @@ async def execute_video_reference_workflow(
         final_artifact=synthesis.output_artifacts[0],
         raw_artifact_bytes=raw_bytes,
         reduced_artifact_bytes=sum(artifact.size_bytes for artifact in reduced_artifacts),
+        reduced_visual_bytes=0,
+        semantic_evidence_bytes=sum(
+            artifact.size_bytes for artifact in reduced_artifacts
+        ),
         local_service_ms=sum(result.service_ms for result in [*sampling, *reductions]),
         remote_service_ms=synthesis.service_ms,
         input_tokens=input_tokens,
@@ -412,6 +494,7 @@ def _execution_rows(
     events: list[dict[str, Any]],
     registry: ExecutorRegistry,
     initial_sizes: Mapping[str, int],
+    transfer_rows: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     sizes = dict(initial_sizes)
     for event in events:
@@ -422,6 +505,24 @@ def _execution_rows(
         for event in events
         if event.get("event_type") == "execution.request"
     }
+    starts = {
+        str(event["action_id"]): event
+        for event in events
+        if event.get("event_type") == "worker.execution.start"
+    }
+    producers = {
+        str(event["artifact_id"]): str(event["action_id"])
+        for event in events
+        if event.get("event_type") == "artifact.created"
+    }
+    transfers = transfer_rows or _transfer_rows(events, registry)
+    transfer_for_input = {
+        (str(item["consumer_action_id"]), str(item["artifact_id"])): str(
+            item["transfer_id"]
+        )
+        for item in transfers
+        if item.get("consumer_action_id") is not None
+    }
     ends = [
         event
         for event in events
@@ -431,6 +532,7 @@ def _execution_rows(
     for event in ends:
         action_id = str(event["action_id"])
         request = requests[action_id]
+        start = starts[action_id]
         executor_id = str(event["executor"])
         worker_id = str(event["worker_id"])
         if executor_id.endswith(":sample_frames"):
@@ -441,6 +543,13 @@ def _execution_rows(
             operator_id = str(request.get("semantic_operator", "invoke_model"))
         inputs = cast(list[str], request.get("input_artifacts", []))
         outputs = cast(list[str], event.get("output_artifacts", []))
+        dependencies: list[str] = []
+        for artifact_id in inputs:
+            dependency = transfer_for_input.get((action_id, artifact_id)) or producers.get(
+                artifact_id
+            )
+            if dependency is not None and dependency not in dependencies:
+                dependencies.append(dependency)
         rows.append(
             {
                 "action_id": action_id,
@@ -449,8 +558,16 @@ def _execution_rows(
                 "worker_id": worker_id,
                 "site_id": site_id,
                 "service_ms": float(event.get("service_ms", 0.0)),
-                "input_bytes": sum(sizes[item] for item in inputs),
-                "output_bytes": sum(sizes[item] for item in outputs),
+                "input_bytes": sum(sizes.get(item, 0) for item in inputs),
+                "output_bytes": sum(sizes.get(item, 0) for item in outputs),
+                "started_at": start["timestamp"],
+                "finished_at": event["timestamp"],
+                "depends_on": dependencies,
+                "input_artifacts": inputs,
+                "output_artifacts": outputs,
+                "model_id": request.get("model_id"),
+                "input_tokens": int(event.get("input_tokens", 0)),
+                "output_tokens": int(event.get("output_tokens", 0)),
             }
         )
     return rows
@@ -460,24 +577,210 @@ def _transfer_rows(
     events: list[dict[str, Any]], registry: ExecutorRegistry
 ) -> list[dict[str, object]]:
     sites = registry.worker_sites()
-    transfers = [
-        event
+    producers = {
+        str(event["artifact_id"]): str(event["action_id"])
         for event in events
-        if event.get("event_type") == "artifact.transfer.end"
-        and event.get("success")
-        and int(event.get("bytes_transferred", 0)) > 0
-    ]
-    return [
+        if event.get("event_type") == "artifact.created"
+    }
+    pending: dict[tuple[str, str, str, str], list[dict[str, Any]]] = {}
+    rows: list[dict[str, object]] = []
+    for event in events:
+        if event.get("event_type") not in {
+            "artifact.transfer.start",
+            "artifact.transfer.end",
+        }:
+            continue
+        key = (
+            str(event.get("action_id")),
+            str(event.get("artifact_id")),
+            str(event.get("source_worker_id")),
+            str(event.get("target_worker_id")),
+        )
+        if event.get("event_type") == "artifact.transfer.start":
+            pending.setdefault(key, []).append(event)
+            continue
+        starts = pending.get(key, [])
+        start = starts.pop(0) if starts else None
+        if not event.get("success") or int(event.get("bytes_transferred", 0)) <= 0:
+            continue
+        artifact_id = str(event["artifact_id"])
+        consumer = str(event["action_id"])
+        producer = producers.get(artifact_id)
+        transfer_id = f"{consumer}:transfer-{len(rows) + 1}"
+        rows.append(
+            {
+                "transfer_id": transfer_id,
+                "artifact_id": artifact_id,
+                "src_site": sites[str(event["source_worker_id"])],
+                "dst_site": sites[str(event["target_worker_id"])],
+                "bytes": int(event["bytes_transferred"]),
+                "latency_ms": float(event["transfer_ms"]),
+                "started_at": start["timestamp"] if start is not None else None,
+                "finished_at": event["timestamp"],
+                "depends_on": [producer] if producer is not None else [],
+                "producer_action_id": producer,
+                "consumer_action_id": consumer,
+            }
+        )
+    return rows
+
+
+def _realized_trace(
+    *,
+    run_id: str,
+    task_id: str,
+    workflow_id: str,
+    warmup: bool,
+    executions: list[dict[str, object]],
+    transfers: list[dict[str, object]],
+    initial_artifact_sites: Mapping[str, str],
+    e2e_latency_ms: float,
+) -> dict[str, object]:
+    """Build a schema-compatible realized trace from measured runtime events."""
+    action_spans = [
         {
-            "transfer_id": f"{event['action_id']}:{index}",
-            "artifact_id": str(event["artifact_id"]),
-            "src_site": sites[str(event["source_worker_id"])],
-            "dst_site": sites[str(event["target_worker_id"])],
-            "bytes": int(event["bytes_transferred"]),
-            "latency_ms": float(event["transfer_ms"]),
+            "span_id": str(item["action_id"]),
+            "span_kind": "action",
+            "name": str(item["operator_id"]),
+            "started_at": item["started_at"],
+            "finished_at": item["finished_at"],
+            "duration_ms": float(cast(float | int | str, item["service_ms"])),
+            "depends_on": item["depends_on"],
+            "service_scope": "remote" if item["site_id"] == "4090" else "local",
+            "operator_id": item["operator_id"],
+            "model_id": item["model_id"],
+            "executor_id": item["executor_id"],
+            "site_id": item["site_id"],
+            "input_artifacts": item["input_artifacts"],
+            "output_artifacts": item["output_artifacts"],
+            "input_bytes": item["input_bytes"],
+            "output_bytes": item["output_bytes"],
+            "input_tokens": item["input_tokens"],
+            "output_tokens": item["output_tokens"],
         }
-        for index, event in enumerate(transfers, start=1)
+        for item in executions
     ]
+    transfer_spans = [
+        {
+            "span_id": str(item["transfer_id"]),
+            "span_kind": "transfer",
+            "name": "artifact_transfer",
+            "started_at": item["started_at"],
+            "finished_at": item["finished_at"],
+            "duration_ms": float(cast(float | int | str, item["latency_ms"])),
+            "depends_on": item["depends_on"],
+            "service_scope": "other",
+            "artifact_id": item["artifact_id"],
+            "producer_span_id": item["producer_action_id"],
+            "consumer_span_id": item["consumer_action_id"],
+            "src_site": item["src_site"],
+            "dst_site": item["dst_site"],
+            "bytes": item["bytes"],
+        }
+        for item in transfers
+    ]
+    spans = [*action_spans, *transfer_spans]
+    timestamps_complete = all(
+        item.get("started_at") is not None and item.get("finished_at") is not None
+        for item in spans
+    )
+    known = {str(item["span_id"]) for item in spans}
+    references_complete = all(
+        set(cast(list[str], item.get("depends_on", []))) <= known for item in spans
+    )
+    initial = set(initial_artifact_sites)
+    action_by_id = {str(item["action_id"]): item for item in executions}
+    producers = {
+        artifact_id: action_id
+        for action_id, item in action_by_id.items()
+        for artifact_id in cast(list[str], item["output_artifacts"])
+    }
+    transfer_by_consumer_input = {
+        (str(item["consumer_action_id"]), str(item["artifact_id"])): item
+        for item in transfers
+        if item.get("consumer_action_id") is not None
+    }
+    lineage_complete = True
+    for action_id, item in action_by_id.items():
+        dependencies = set(cast(list[str], item["depends_on"]))
+        consumer_site = str(item["site_id"])
+        for artifact_id in cast(list[str], item["input_artifacts"]):
+            transfer = transfer_by_consumer_input.get((action_id, artifact_id))
+            if artifact_id in initial:
+                requires_transfer = initial_artifact_sites[artifact_id] != consumer_site
+                if requires_transfer and (
+                    transfer is None
+                    or str(transfer["transfer_id"]) not in dependencies
+                    or transfer["src_site"] != initial_artifact_sites[artifact_id]
+                    or transfer["dst_site"] != consumer_site
+                ):
+                    lineage_complete = False
+                continue
+            producer = producers.get(artifact_id)
+            producer_row = action_by_id.get(producer) if producer is not None else None
+            producer_site = (
+                str(producer_row["site_id"]) if producer_row is not None else None
+            )
+            requires_transfer = producer_site is not None and producer_site != consumer_site
+            if transfer is not None:
+                transfer_id = str(transfer["transfer_id"])
+                if (
+                    producer is None
+                    or transfer.get("producer_action_id") != producer
+                    or transfer_id not in dependencies
+                    or transfer["src_site"] != producer_site
+                    or transfer["dst_site"] != consumer_site
+                ):
+                    lineage_complete = False
+            elif producer is None or producer not in dependencies or requires_transfer:
+                lineage_complete = False
+    for transfer in transfers:
+        artifact_id = str(transfer["artifact_id"])
+        consumer = transfer.get("consumer_action_id")
+        producer = transfer.get("producer_action_id")
+        transfer_dependencies = set(cast(list[str], transfer["depends_on"]))
+        consumer_row = action_by_id.get(str(consumer)) if consumer is not None else None
+        if (
+            consumer_row is None
+            or artifact_id not in cast(list[str], consumer_row["input_artifacts"])
+            or str(transfer["transfer_id"])
+            not in set(cast(list[str], consumer_row["depends_on"]))
+        ):
+            lineage_complete = False
+        if artifact_id in initial:
+            consumer_site = consumer_row.get("site_id") if consumer_row is not None else None
+            if (
+                transfer["src_site"] != initial_artifact_sites[artifact_id]
+                or transfer["dst_site"] != consumer_site
+            ):
+                lineage_complete = False
+        elif (
+            producer is None
+            or producers.get(artifact_id) != producer
+            or str(producer) not in transfer_dependencies
+        ):
+            lineage_complete = False
+    dependencies_complete = references_complete and lineage_complete
+    evidence = "complete" if spans and timestamps_complete else "partial"
+    return {
+        "schema_version": "realized-workflow-trace-v1",
+        "run_id": run_id,
+        "task_id": task_id,
+        "workflow_id": workflow_id,
+        "warmup": warmup,
+        "dependency_evidence": "complete" if dependencies_complete else "partial",
+        "timestamp_evidence": evidence,
+        "trace_coverage": "complete" if spans and dependencies_complete else "partial",
+        "spans": spans,
+        "e2e_latency_ms": e2e_latency_ms,
+        "quality": None,
+        "metadata": {
+            "source": "infra-aware-mas-runtime-trace",
+            "service_fields_are_sums": True,
+            "initial_artifact_sites": dict(initial_artifact_sites),
+            "e2e_boundary": "workflow_start_to_final_artifact_created",
+        },
+    }
 
 
 def _append_jsonl(path: Path, row: Mapping[str, object]) -> None:
@@ -486,7 +789,9 @@ def _append_jsonl(path: Path, row: Mapping[str, object]) -> None:
         output.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def _completed_keys(path: Path) -> set[tuple[str, str, str, int]]:
+def _completed_keys(
+    path: Path, run_prefix: str
+) -> set[tuple[str, str, str, int, bool]]:
     if not path.is_file():
         return set()
     rows = [
@@ -494,16 +799,45 @@ def _completed_keys(path: Path) -> set[tuple[str, str, str, int]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+    matching_rows: list[dict[str, object]] = []
+    for row in rows:
+        raw_metadata = row.get("metadata")
+        metadata = (
+            cast(dict[str, object], raw_metadata)
+            if isinstance(raw_metadata, dict)
+            else {}
+        )
+        raw_prefix = row.get("measurement_series_id")
+        if raw_prefix is None:
+            raw_prefix = metadata.get("measurement_series_id")
+        if raw_prefix is None:
+            raw_prefix = metadata.get("run_prefix")
+        metadata_prefix = raw_prefix if isinstance(raw_prefix, str) else None
+        run_id = str(row.get("run_id", ""))
+        if metadata_prefix == run_prefix or (
+            metadata_prefix is None and run_id.startswith(f"{run_prefix}-")
+        ):
+            matching_rows.append(row)
     return {
         (
             str(row["task_id"]),
             str(row["workflow_id"]),
             str(row["world_id"]),
             int(cast(int, row["repeat"])),
+            bool(row.get("warmup", False)),
         )
-        for row in rows
+        for row in matching_rows
         if row.get("status") == "completed"
     }
+
+
+def _attempt_schedule(
+    repeats: int, warmup_runs: Literal[1] = 1
+) -> tuple[tuple[int, bool], ...]:
+    """Return one excluded warm-up followed by numbered measured attempts."""
+    if warmup_runs != 1:
+        raise ValueError("calibration_v0 requires exactly one warm-up per cell")
+    return ((0, True), *((repeat, False) for repeat in range(1, repeats + 1)))
 
 
 def _validate_deployment(
@@ -528,7 +862,7 @@ async def run_calibration_v0_sweep(
     sweep_path: Path,
     output_directory: Path,
 ) -> dict[str, object]:
-    """Run the fixed 2x2xN calibration and append bench-compatible raw JSONL rows."""
+    """Run warm-up plus measured calibration cells and append raw JSONL rows."""
     sweep_path = sweep_path.resolve()
     sweep = CalibrationV0SweepConfig.from_yaml(sweep_path)
     base = sweep_path.parent
@@ -559,20 +893,33 @@ async def run_calibration_v0_sweep(
     raw_path = output_directory / "raw_runs.jsonl"
     traces_root = output_directory / "traces"
     temporary_root = output_directory / ".runtime"
-    completed = _completed_keys(raw_path)
+    completed = _completed_keys(raw_path, sweep.run_prefix)
     clients = create_worker_clients(full_registry, experiment.worker_timeout_seconds)
     written = 0
     try:
         await preflight_workers(full_registry, clients)
         for task in sweep.tasks:
-            input_paths = [resolve_config_path(item.path, base) for item in task.inputs]
-            for path in input_paths:
-                if not path.is_file():
-                    raise FileNotFoundError(f"calibration_v0 input not found: {path}")
+            input_paths = (
+                [item.path for item in task.inputs]
+                if sweep.input_source == "worker_local"
+                else [resolve_config_path(item.path, base) for item in task.inputs]
+            )
+            if sweep.input_source == "controller_upload":
+                for path in input_paths:
+                    if not path.is_file():
+                        raise FileNotFoundError(f"calibration_v0 input not found: {path}")
             for world in sweep.worlds:
-                for repeat in range(1, sweep.repeats + 1):
+                for repeat, warmup in _attempt_schedule(
+                    sweep.repeats, sweep.warmup_runs
+                ):
                     for workflow_id in sweep.workflows:
-                        key = (task.task_id, workflow_id, world.world_id, repeat)
+                        key = (
+                            task.task_id,
+                            workflow_id,
+                            world.world_id,
+                            repeat,
+                            warmup,
+                        )
                         if key in completed:
                             continue
                         safe_task_id = "".join(
@@ -581,35 +928,56 @@ async def run_calibration_v0_sweep(
                             else "-"
                             for character in task.task_id
                         )
+                        attempt_id = "warmup" if warmup else f"r{repeat}"
                         run_id = (
                             f"{sweep.run_prefix}-{safe_task_id}-{world.world_id}-"
-                            f"{workflow_id}-r{repeat}-{uuid4().hex[:8]}"
+                            f"{workflow_id}-{attempt_id}-{uuid4().hex[:8]}"
                         )
                         trace = TraceRecorder(traces_root, run_id, exclusive=True)
                         await trace.start(
                             {
                                 "mode": "calibration_v0_reference",
                                 "planner_constructed": False,
+                                "run_prefix": sweep.run_prefix,
+                                "measurement_series_id": sweep.run_prefix,
+                                "measurement_protocol": MEASUREMENT_PROTOCOL,
                                 "task_id": task.task_id,
                                 "workflow_id": workflow_id,
                                 "world_id": world.world_id,
                                 "repeat": repeat,
+                                "warmup": warmup,
+                                "configured_bandwidth_mbps": world.bandwidth_mbps,
+                                "configured_added_rtt_ms": world.rtt_ms,
                                 "bandwidth_mbps": world.bandwidth_mbps,
                                 "rtt_ms_added": world.rtt_ms,
                                 "network_shaping": "worker_application_layer_wall_clock",
+                                "input_source": sweep.input_source,
                             }
                         )
                         started_at = perf_counter()
                         try:
-                            artifacts = await upload_placed_inputs(
-                                input_paths,
-                                run_id,
-                                sweep.input_workers,
-                                clients,
-                                artifact_ids=[item.artifact_id for item in task.inputs],
-                            )
-                            # Controller ingress establishes the requested initial placement;
-                            # the measured E2E interval starts from the reference workflow.
+                            if sweep.input_source == "worker_local":
+                                artifacts = await bind_placed_inputs(
+                                    input_paths,
+                                    run_id,
+                                    sweep.input_workers,
+                                    clients,
+                                    artifact_ids=[item.artifact_id for item in task.inputs],
+                                    expected_size_bytes=[
+                                        item.expected_size_bytes for item in task.inputs
+                                    ],
+                                    trace=trace,
+                                )
+                            else:
+                                artifacts = await upload_placed_inputs(
+                                    input_paths,
+                                    run_id,
+                                    sweep.input_workers,
+                                    clients,
+                                    artifact_ids=[item.artifact_id for item in task.inputs],
+                                )
+                            # Initial placement is setup, whether controller upload or
+                            # allowlisted Worker-local binding. E2E starts at the workflow.
                             started_at = perf_counter()
                             initial_sizes = {item.id: item.size_bytes for item in artifacts}
                             build_video_task_interaction(
@@ -647,10 +1015,12 @@ async def run_calibration_v0_sweep(
                                 sample_count=sweep.sample_count_per_chunk,
                                 frame_width=sweep.frame_width,
                             )
+                            # The realized workflow ends when its final artifact exists.
+                            # Controller download is evaluator materialization, not execution.
+                            e2e_ms = (perf_counter() - started_at) * 1000
                             answer = await _download_answer(
                                 result.final_artifact, clients, temporary_root
                             )
-                            e2e_ms = (perf_counter() - started_at) * 1000
                             await trace.end(
                                 {
                                     "success": True,
@@ -661,7 +1031,20 @@ async def run_calibration_v0_sweep(
                             events = _read_trace(trace.path)
                             transfers = _transfer_rows(events, full_registry)
                             executions = _execution_rows(
-                                events, full_registry, initial_sizes
+                                events, full_registry, initial_sizes, transfers
+                            )
+                            realized_trace = _realized_trace(
+                                run_id=run_id,
+                                task_id=task.task_id,
+                                workflow_id=workflow_id,
+                                warmup=warmup,
+                                executions=executions,
+                                transfers=transfers,
+                                initial_artifact_sites={
+                                    item.id: full_registry.worker_sites()[item.locations[0]]
+                                    for item in artifacts
+                                },
+                                e2e_latency_ms=e2e_ms,
                             )
                             raw_records = [
                                 {
@@ -674,16 +1057,28 @@ async def run_calibration_v0_sweep(
                                     artifacts, sweep.input_workers, strict=True
                                 )
                             ]
-                            reduced = [
-                                item.output_artifacts[0]
-                                for item in result.executions
-                                if item.metadata.get("semantic_operator") != "sample_frames"
-                                and item is not result.executions[-1]
-                            ]
+                            if workflow_id == "visual_reduction":
+                                reduced = [
+                                    artifact
+                                    for item in result.executions
+                                    if item.metadata.get("semantic_operator")
+                                    == "sample_frames"
+                                    for artifact in item.output_artifacts
+                                ]
+                                reduced_kind = "sampled_frames"
+                            else:
+                                reduced = [
+                                    item.output_artifacts[0]
+                                    for item in result.executions
+                                    if item.metadata.get("semantic_operator")
+                                    != "sample_frames"
+                                    and item is not result.executions[-1]
+                                ]
+                                reduced_kind = "semantic_evidence"
                             reduced_records = [
                                 {
                                     "artifact_id": artifact.id,
-                                    "kind": "semantic_evidence",
+                                    "kind": reduced_kind,
                                     "site_id": full_registry.worker_sites()[artifact.locations[0]],
                                     "bytes": artifact.size_bytes,
                                 }
@@ -696,6 +1091,9 @@ async def run_calibration_v0_sweep(
                                 "workflow_id": workflow_id,
                                 "world_id": world.world_id,
                                 "repeat": repeat,
+                                "warmup": warmup,
+                                "measurement_series_id": sweep.run_prefix,
+                                "protocol_id": MEASUREMENT_PROTOCOL,
                                 "status": "completed",
                                 # Gold stays on the infra-bench evaluator side. Its reporter
                                 # fills this field before quality-gated comparison.
@@ -703,6 +1101,10 @@ async def run_calibration_v0_sweep(
                                 "artifacts": {
                                     "raw_bytes": result.raw_artifact_bytes,
                                     "reduced_bytes": result.reduced_artifact_bytes,
+                                    "reduced_visual_bytes": result.reduced_visual_bytes,
+                                    "semantic_evidence_bytes": (
+                                        result.semantic_evidence_bytes
+                                    ),
                                     "reduction_ratio": (
                                         result.reduced_artifact_bytes
                                         / result.raw_artifact_bytes
@@ -736,10 +1138,20 @@ async def run_calibration_v0_sweep(
                                 "e2e_latency_ms": e2e_ms,
                                 "executions": executions,
                                 "final_answer": answer,
+                                "trace": realized_trace,
                                 "metadata": {
                                     "network_shaping": "worker_application_layer_wall_clock",
+                                    "configured_bandwidth_mbps": world.bandwidth_mbps,
+                                    "configured_added_rtt_ms": world.rtt_ms,
                                     "bandwidth_mbps": world.bandwidth_mbps,
                                     "rtt_ms_added": world.rtt_ms,
+                                    "run_prefix": sweep.run_prefix,
+                                    "measurement_series_id": sweep.run_prefix,
+                                    "measurement_protocol": MEASUREMENT_PROTOCOL,
+                                    "e2e_boundary": (
+                                        "workflow_start_to_final_artifact_created"
+                                    ),
+                                    "answer_download_in_e2e": False,
                                 },
                             }
                         except Exception as error:
@@ -758,12 +1170,24 @@ async def run_calibration_v0_sweep(
                                 "workflow_id": workflow_id,
                                 "world_id": world.world_id,
                                 "repeat": repeat,
+                                "warmup": warmup,
+                                "measurement_series_id": sweep.run_prefix,
+                                "protocol_id": MEASUREMENT_PROTOCOL,
                                 "status": "failed",
                                 "error": f"{type(error).__name__}: {error}",
                                 "metadata": {
                                     "network_shaping": "worker_application_layer_wall_clock",
+                                    "configured_bandwidth_mbps": world.bandwidth_mbps,
+                                    "configured_added_rtt_ms": world.rtt_ms,
                                     "bandwidth_mbps": world.bandwidth_mbps,
                                     "rtt_ms_added": world.rtt_ms,
+                                    "run_prefix": sweep.run_prefix,
+                                    "measurement_series_id": sweep.run_prefix,
+                                    "measurement_protocol": MEASUREMENT_PROTOCOL,
+                                    "e2e_boundary": (
+                                        "workflow_start_to_failure_observation"
+                                    ),
+                                    "answer_download_in_e2e": False,
                                 },
                             }
                         _append_jsonl(raw_path, row)

@@ -5,7 +5,16 @@ from agents.models.interface import Model
 
 from infra_mas.planner.context import PlannerContext
 from infra_mas.planner.prompts import build_blind_coordinator_instructions
-from infra_mas.planner.tools import delegate, inspect_artifact, spawn_agent
+from infra_mas.planner.tools import (
+    aggregate_artifacts,
+    delegate,
+    extract_clip,
+    inspect_artifact,
+    make_contact_sheet,
+    process_local_artifact,
+    sample_frames,
+    spawn_agent,
+)
 from infra_mas.planner.trace_hooks import PlannerTraceHooks
 
 
@@ -26,10 +35,17 @@ class Coordinator:
         self._max_turns = max_turns
         self._trace_hooks = PlannerTraceHooks(context)
         assert context.model_registry is not None
+        media_tools: list[Tool] = [
+            sample_frames,
+            make_contact_sheet,
+            extract_clip,
+            process_local_artifact,
+            aggregate_artifacts,
+        ]
         mode_tools: dict[str, list[Tool]] = {
-            "static_agents": [delegate, inspect_artifact],
-            "dynamic_models": [spawn_agent, inspect_artifact],
-            "hybrid": [delegate, spawn_agent, inspect_artifact],
+            "static_agents": [delegate, inspect_artifact, *media_tools],
+            "dynamic_models": [spawn_agent, inspect_artifact, *media_tools],
+            "hybrid": [delegate, spawn_agent, inspect_artifact, *media_tools],
         }
         self._agent = Agent[PlannerContext](
             name="coordinator",

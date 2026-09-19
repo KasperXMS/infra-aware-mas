@@ -18,10 +18,14 @@ from infra_mas.core.errors import (
     WorkerUnavailableError,
 )
 from infra_mas.core.execution import (
+    AggregateArtifactsRequest,
     ArtifactPullRequest,
+    BindLocalArtifactRequest,
     ExecutionRequest,
     ExecutionResult,
+    ExtractClipRequest,
     HealthResponse,
+    MakeContactSheetRequest,
     SampleFramesRequest,
     TransferResult,
     WorkerStatus,
@@ -165,6 +169,50 @@ class WorkerClient:
             not_found_is_artifact=True,
         )
         return ExecutionResult.model_validate(response.json())
+
+    async def make_contact_sheet(
+        self, request: MakeContactSheetRequest
+    ) -> ExecutionResult:
+        """Compose image artifacts on this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/make-contact-sheet",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def extract_clip(self, request: ExtractClipRequest) -> ExecutionResult:
+        """Extract a fixed video interval on this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/extract-clip",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def aggregate_artifacts(
+        self, request: AggregateArtifactsRequest
+    ) -> ExecutionResult:
+        """Aggregate textual evidence on this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/aggregate-artifacts",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def bind_local_artifact(self, request: BindLocalArtifactRequest) -> ArtifactRef:
+        """Bind an allowlisted file already present on this Worker."""
+        response = await self._request(
+            "POST",
+            "/artifacts/bind-local",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ArtifactRef.model_validate(response.json())
 
     async def _request(
         self,

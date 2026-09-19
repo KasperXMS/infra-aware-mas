@@ -241,8 +241,8 @@ catalog and is used only by hidden calibration references.
 
 ### Long-video `calibration_v0`
 
-The planner-free long-video runner executes `centralized_raw` and `local_reduction` at least three
-times in both controlled worlds and appends measurements to `raw_runs.jsonl`:
+The planner-free long-video runner executes one excluded warm-up followed by at least three
+measured attempts per task/workflow/world cell and appends measurements to `raw_runs.jsonl`:
 
 ```bash
 uv run infra-mas-bench calibrate-v0 \
@@ -250,9 +250,11 @@ uv run infra-mas-bench calibrate-v0 \
   --output runs/calibration_v0
 ```
 
-The sweep contains no gold answer. It accepts a question/options, three already-created fixed-time
-chunks with their durations, A4/A5/A28 input Worker IDs, logical local/strong model IDs, and the
-shared eligible executor set. `H1_distributed_constrained` should use 10 Mbps plus 50 ms added RTT;
+Warm-up rows are explicit (`warmup=true`, `repeat=0`); measured rows use `warmup=false` and
+`repeat>=1`, so the benchmark reporter can exclude warm-up from quality, metrics, break-even, and
+admission. The sweep contains no gold answer. It accepts a question/options, three already-created
+fixed-time chunks with their durations, A4/A5/A28 input Worker IDs, logical local/strong model IDs,
+and the shared eligible executor set. `H1_distributed_constrained` uses 3 Mbps plus 50 ms added RTT;
 `H2_distributed_favorable` should use 100 Mbps with no added RTT. The target Worker enforces these
 profiles while streaming actual bytes, and transfer/E2E fields are wall-clock measurements. The
 original benchmark evaluator fills `quality` later on the `infra-bench` side.
@@ -264,6 +266,17 @@ moves raw chunks to the 4090 and samples there. Local reduction samples and invo
 VLM on each Orin, then transfers compact semantic evidence for final 4090 reasoning. All sampling,
 model, token, artifact, transfer, executor/site, API cost, and E2E measurements remain in trace/raw
 output.
+
+The Task 795 formal reference manifest adds visual reduction with the same generic operators: each
+Orin uniformly samples its local raw chunk into a contact sheet, and normal artifact localization
+transfers the three visual artifacts to the strong VLM for final reasoning. The manifest runs all
+three Task 795 arms together under the same measurement series:
+
+```bash
+uv run infra-mas-bench calibrate-v0 \
+  --sweep configs/calibration_v0/reference_795_all_workflows_sweep.yaml \
+  --output runs/calibration_v0
+```
 
 ## Open-ended SWE-bench semantic-switch experiment
 

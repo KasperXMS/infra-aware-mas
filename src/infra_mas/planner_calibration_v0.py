@@ -20,12 +20,22 @@ from infra_mas.experiment import (
     create_worker_clients,
     preflight_workers,
     resolve_config_path,
+    run_blind_experiment,
 )
 from infra_mas.resources.provider import StaticResourceConfig
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 PlannerWorld = Literal["H1_distributed_constrained", "H2_distributed_favorable"]
 PlannerArm = Literal["blind", "aware"]
+PlannerTool = Literal[
+    "spawn_agent",
+    "inspect_artifact",
+    "sample_frames",
+    "make_contact_sheet",
+    "extract_clip",
+    "process_local_artifact",
+    "aggregate_artifacts",
+]
 
 _EXPECTED_SITES = ("A4", "A5", "A28")
 _FORBIDDEN_RUNTIME_TEXT = (
@@ -52,6 +62,7 @@ class PlannerVideoArtifact(BaseModel):
     site_id: Literal["A4", "A5", "A28"]
     chunk_index: int = Field(ge=0, le=2)
     duration_s: float = Field(gt=0.0)
+    size_bytes: int = Field(gt=0)
 
 
 class PlannerTask795(BaseModel):
@@ -155,9 +166,14 @@ class PlannerExperimentCell(BaseModel):
         Literal["a28-vlm"],
         Literal["strong-4090-vlm"],
     ] = ("a4-vlm", "a5-vlm", "a28-vlm", "strong-4090-vlm")
-    planner_tools: tuple[Literal["spawn_agent"], Literal["inspect_artifact"]] = (
+    planner_tools: tuple[PlannerTool, ...] = (
         "spawn_agent",
         "inspect_artifact",
+        "sample_frames",
+        "make_contact_sheet",
+        "extract_clip",
+        "process_local_artifact",
+        "aggregate_artifacts",
     )
 
     @model_validator(mode="after")
@@ -213,6 +229,8 @@ def _load_cell(
         raise ValueError("open-ended calibration requires more than one Planner turn")
     if experiment.infrastructure_visibility != cell.infrastructure_visibility:
         raise ValueError("cell visibility must match its executable experiment config")
+    if experiment.input_source != "worker_local":
+        raise ValueError("open-ended calibration requires input_source: worker_local")
     return cell, task, experiment, resources
 
 
@@ -367,6 +385,26 @@ async def preflight_planner_jetsons(
         checked = await preflight_workers(jetson_registry, clients)
     finally:
         await close_worker_clients(clients)
+    required_operators = {
+        "sample_frames",
+        "make_contact_sheet",
+        "aggregate_artifacts",
+    }
+    optional_operators = {"extract_clip"}
+    missing = {
+        worker_id: sorted(required_operators - set(checked.operators.get(worker_id, [])))
+        for worker_id in jetson_worker_ids
+    }
+    missing = {worker_id: items for worker_id, items in missing.items() if items}
+    missing_optional = {
+        worker_id: sorted(
+            optional_operators - set(checked.operators.get(worker_id, []))
+        )
+        for worker_id in jetson_worker_ids
+    }
+    missing_optional = {
+        worker_id: items for worker_id, items in missing_optional.items() if items
+    }
     return PlannerPreflightReport(
         jetson_workers=checked.workers,
         strong_4090={
@@ -377,20 +415,52 @@ async def preflight_planner_jetsons(
             "reason": "Task 6 preflight is intentionally Jetson-only",
         },
         capability_validation={
-            "status": "execution_blocked",
+            "status": "ready_for_full_preflight" if not missing else "execution_blocked",
             "raw_artifact_type": "video/mp4",
-            "planner_tools": ["spawn_agent", "inspect_artifact"],
-            "missing_planner_operator": "sample_frames",
-            "configured_model_input_modalities": ["text", "image"],
-            "direct_video_supported": False,
+            "planner_tools": list(PlannerExperimentCell.model_fields["planner_tools"].default),
+            "missing_jetson_operators": missing,
+            "missing_optional_jetson_operators": missing_optional,
+            "strong_model_input_modalities": ["text", "image", "video"],
+            "direct_video_configured": True,
             "artifact_binding": "worker_local_paths",
-            "worker_local_source_binding_supported": False,
+            "worker_local_source_binding_supported": not bool(missing),
             "reason": (
-                "The unchanged open-ended Planner cannot invoke sample_frames, and the "
-                "deployed Ollama VLM path does not accept raw MP4 input. The current benchmark "
-                "bridge also materializes controller-local source paths rather than binding "
-                "pre-existing Worker-local files. Config and placement validation passed, but "
-                "execution must remain blocked without changing the Planner/runtime contract."
+                "Jetson actions required by the raw, visual, and semantic calibration paths "
+                "and worker-local binding are ready; optional actions may depend on deployed "
+                "binaries. The strong Worker remains deliberately unchecked in this "
+                "Jetson-only preflight."
+                if not missing
+                else "One or more Jetsons do not expose the required generic media actions."
             ),
+        },
+    )
+
+
+async def run_planner_experiment_cell(
+    path: Path,
+    *,
+    run_id: str | None = None,
+) -> tuple[str, Path]:
+    """Run one validated cell using its three pre-existing Worker-local MP4s."""
+    cell, task, _experiment, resources = _load_cell(path)
+    experiment_path = resolve_config_path(cell.experiment_config, path.resolve().parent)
+    artifacts = sorted(task.artifacts, key=lambda item: item.chunk_index)
+    return await run_blind_experiment(
+        experiment_path,
+        task.instruction,
+        [Path(item.source_ref) for item in artifacts],
+        run_id=run_id,
+        input_workers=list(cell.input_workers),
+        artifact_ids=[item.artifact_id for item in artifacts],
+        input_expected_sizes=[item.size_bytes for item in artifacts],
+        infrastructure_visibility=cell.infrastructure_visibility,
+        network_links=resources.network_links,
+        eligible_executor_ids=list(cell.eligible_executor_ids),
+        run_metadata={
+            "experiment_id": cell.experiment_id,
+            "task_id": task.task_id,
+            "world_id": cell.world_id,
+            "arm": cell.arm,
+            "input_binding": "worker_local",
         },
     )

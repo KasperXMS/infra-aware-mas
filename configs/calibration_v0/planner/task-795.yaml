@@ -22,13 +22,16 @@ artifacts:
     site_id: A4
     chunk_index: 0
     duration_s: 832.001
+    size_bytes: 93677242
   - artifact_id: video_mme:795:chunk:1
     source_ref: /home/edge/xiaoming/calibration_v0/artifacts/795/chunk-1.mp4
     site_id: A5
     chunk_index: 1
     duration_s: 834.141
+    size_bytes: 99396939
   - artifact_id: video_mme:795:chunk:2
     source_ref: /home/edge/xiaoming/calibration_v0/artifacts/795/chunk-2.mp4
     site_id: A28
     chunk_index: 2
     duration_s: 828.988
+    size_bytes: 89370679

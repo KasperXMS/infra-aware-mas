@@ -2,7 +2,9 @@
 
 import asyncio
 import io
+import json
 import math
+import re
 import shutil
 import tempfile
 from collections.abc import AsyncIterator, Callable, Iterable
@@ -24,9 +26,13 @@ from infra_mas.core.errors import (
     InvalidModelResponseError,
 )
 from infra_mas.core.execution import (
+    AggregateArtifactsRequest,
     ArtifactPullRequest,
+    BindLocalArtifactRequest,
     ExecutionRequest,
     ExecutionResult,
+    ExtractClipRequest,
+    MakeContactSheetRequest,
     SampleFramesRequest,
     TransferResult,
     WorkerStatus,
@@ -51,7 +57,7 @@ ArtifactIdFactory = Callable[[ExecutionRequest], str]
 def _compose_contact_sheet(
     frame_paths: list[Path],
     columns: int,
-    duration_s: float,
+    duration_s: float | None,
 ) -> bytes:
     """Pack fixed chronological samples into one labelled generic JPEG artifact."""
     loaded: list[Image.Image] = []
@@ -78,10 +84,13 @@ def _compose_contact_sheet(
             x = column * tile_width
             y = row * (tile_height + label_height)
             sheet.paste(image, (x, y))
-            timestamp_s = duration_s * (index + 0.5) / len(loaded)
+            label = f"sample {index + 1:02d}"
+            if duration_s is not None:
+                timestamp_s = duration_s * (index + 0.5) / len(loaded)
+                label += f" @ {timestamp_s:.0f} sec"
             draw.text(
                 (x + 6, y + tile_height + 4),
-                f"sample {index + 1:02d} @ {timestamp_s:.0f} sec",
+                label,
                 fill="white",
             )
         buffer = io.BytesIO()
@@ -117,6 +126,7 @@ class WorkerService:
         gstreamer_path: str = "gst-launch-1.0",
         frame_sampler: Literal["auto", "ffmpeg", "gstreamer"] = "auto",
         gstreamer_converter: Literal["auto", "nvvidconv", "videoconvert"] = "auto",
+        local_source_roots: Iterable[Path] = (),
     ) -> None:
         if not worker_id.strip():
             raise ValueError("worker_id must not be empty")
@@ -141,6 +151,7 @@ class WorkerService:
         self._gstreamer_path = gstreamer_path
         self._frame_sampler = frame_sampler
         self._gstreamer_converter = gstreamer_converter
+        self._local_source_roots = tuple(path.resolve() for path in local_source_roots)
 
     @property
     def artifact_store(self) -> ArtifactStore:
@@ -149,9 +160,28 @@ class WorkerService:
 
     def status(self) -> WorkerStatus:
         """Return static worker and executor identity information."""
+        operators = ["make_contact_sheet", "aggregate_artifacts"]
+        ffmpeg_available = shutil.which(self._ffmpeg_path) is not None
+        gstreamer_available = shutil.which(self._gstreamer_path) is not None
+        if ffmpeg_available:
+            operators.append("extract_clip")
+        has_duration_probe = shutil.which("ffprobe") is not None or (
+            shutil.which("gst-discoverer-1.0") is not None
+        )
+        sampler_available = (
+            self._frame_sampler == "ffmpeg" and ffmpeg_available
+        ) or (
+            self._frame_sampler == "gstreamer" and gstreamer_available
+        ) or (
+            self._frame_sampler == "auto"
+            and (ffmpeg_available or gstreamer_available)
+        )
+        if sampler_available and has_duration_probe:
+            operators.append("sample_frames")
         return WorkerStatus(
             worker_id=self._worker_id,
             executors=[executor.id for executor in self._executors.values()],
+            operators=operators,
         )
 
     async def aclose(self) -> None:
@@ -259,6 +289,7 @@ class WorkerService:
         if not request.input_artifact.artifact_type.startswith("video/"):
             raise ExecutionFailedError("sample_frames requires a video artifact")
         started_at = perf_counter()
+        duration_s = request.duration_s or await self._probe_video_duration(source)
         sampler = self._frame_sampler
         if sampler == "auto":
             if shutil.which(self._ffmpeg_path):
@@ -269,7 +300,7 @@ class WorkerService:
                 raise ExecutionFailedError("neither ffmpeg nor gst-launch-1.0 is available")
         with tempfile.TemporaryDirectory(prefix="infra-mas-frames-") as directory:
             frame_pattern = str(Path(directory) / "frame-%03d.jpg")
-            fps = request.sample_count / request.duration_s
+            fps = request.sample_count / duration_s
             if sampler == "ffmpeg":
                 process = await asyncio.create_subprocess_exec(
                     self._ffmpeg_path,
@@ -343,7 +374,7 @@ class WorkerService:
                 _compose_contact_sheet,
                 frames[: request.sample_count],
                 request.columns,
-                request.duration_s,
+                duration_s,
             )
             output = await self._artifact_store.put_bytes(
                 request.output_artifact_id,
@@ -361,9 +392,205 @@ class WorkerService:
                 "sampler": sampler,
                 "sample_count": request.sample_count,
                 "columns": request.columns,
+                "duration_s": duration_s,
                 "layout": "chronological_contact_sheet",
             },
         )
+
+    async def _probe_video_duration(self, source: Path) -> float:
+        """Probe video duration locally without sending media to the coordinator."""
+        ffprobe = shutil.which("ffprobe")
+        if ffprobe is not None:
+            process = await asyncio.create_subprocess_exec(
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(source),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await process.communicate()
+            if process.returncode == 0:
+                try:
+                    duration = float(stdout.decode().strip())
+                except ValueError:
+                    duration = 0.0
+                if duration > 0:
+                    return duration
+
+        discoverer = shutil.which("gst-discoverer-1.0")
+        if discoverer is not None:
+            process = await asyncio.create_subprocess_exec(
+                discoverer,
+                source.resolve().as_uri(),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await process.communicate()
+            if process.returncode == 0:
+                match = re.search(
+                    rb"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", stdout
+                )
+                if match is not None:
+                    hours, minutes, seconds = match.groups()
+                    duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+                    if duration > 0:
+                        return duration
+        raise ExecutionFailedError(
+            "sample_frames could not probe duration; pass duration_s or install "
+            "ffprobe/gst-discoverer-1.0"
+        )
+
+    async def make_contact_sheet(self, request: MakeContactSheetRequest) -> ExecutionResult:
+        """Compose already-local chronological images into one JPEG contact sheet."""
+        if any(not item.artifact_type.startswith("image/") for item in request.input_artifacts):
+            raise ExecutionFailedError("make_contact_sheet requires only image artifacts")
+        started_at = perf_counter()
+        paths = [await self._artifact_store.get_path(item.id) for item in request.input_artifacts]
+        encoded = await asyncio.to_thread(
+            _compose_contact_sheet,
+            paths,
+            request.columns,
+            request.duration_s,
+        )
+        output = await self._artifact_store.put_bytes(
+            request.output_artifact_id,
+            encoded,
+            "image/jpeg",
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:make_contact_sheet",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "make_contact_sheet",
+                "input_count": len(paths),
+                "columns": request.columns,
+            },
+        )
+
+    async def extract_clip(self, request: ExtractClipRequest) -> ExecutionResult:
+        """Extract one fixed video interval locally with ffmpeg stream copying."""
+        if not request.input_artifact.artifact_type.startswith("video/"):
+            raise ExecutionFailedError("extract_clip requires a video artifact")
+        source = await self._artifact_store.get_path(request.input_artifact.id)
+        if shutil.which(self._ffmpeg_path) is None:
+            raise ExecutionFailedError("extract_clip requires ffmpeg on the selected Worker")
+        started_at = perf_counter()
+        with tempfile.TemporaryDirectory(prefix="infra-mas-clip-") as directory:
+            target = Path(directory) / "clip.mp4"
+            process = await asyncio.create_subprocess_exec(
+                self._ffmpeg_path,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-ss",
+                str(request.start_s),
+                "-i",
+                str(source),
+                "-t",
+                str(request.duration_s),
+                "-map",
+                "0",
+                "-c",
+                "copy",
+                str(target),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await process.communicate()
+            if process.returncode != 0 or not target.is_file():
+                detail = stderr.decode("utf-8", errors="replace").strip()
+                raise ExecutionFailedError(f"ffmpeg extract_clip failed: {detail}")
+            output = await self._artifact_store.import_file(
+                request.output_artifact_id,
+                target,
+                "video/mp4",
+            )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:extract_clip",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "extract_clip",
+                "start_s": request.start_s,
+                "end_s": request.end_s,
+            },
+        )
+
+    async def aggregate_artifacts(
+        self, request: AggregateArtifactsRequest
+    ) -> ExecutionResult:
+        """Aggregate UTF-8 evidence into a stable JSON envelope locally."""
+        started_at = perf_counter()
+        records: list[dict[str, str]] = []
+        for artifact in request.input_artifacts:
+            media_type = artifact.artifact_type.partition(";")[0].lower()
+            if not (
+                media_type.startswith("text/")
+                or media_type.endswith("+json")
+                or media_type in {"application/json", "application/xml", "application/yaml"}
+            ):
+                raise ExecutionFailedError(
+                    f"aggregate_artifacts requires textual inputs, got {artifact.artifact_type!r}"
+                )
+            path = await self._artifact_store.get_path(artifact.id)
+            try:
+                content = await asyncio.to_thread(path.read_text, encoding="utf-8")
+            except UnicodeDecodeError as error:
+                raise ExecutionFailedError(
+                    f"artifact {artifact.id!r} is not valid UTF-8"
+                ) from error
+            records.append({"artifact_id": artifact.id, "content": content})
+        payload = json.dumps({"artifacts": records}, ensure_ascii=False, separators=(",", ":"))
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id,
+            payload,
+            "application/json",
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:aggregate_artifacts",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "aggregate_artifacts",
+                "input_count": len(records),
+            },
+        )
+
+    async def bind_local_artifact(self, request: BindLocalArtifactRequest) -> ArtifactRef:
+        """Import an allowlisted local file; no artifact bytes traverse HTTP."""
+        source = Path(request.source_path).resolve()
+        if not self._local_source_roots:
+            raise ExecutionFailedError("Worker has no allowlisted local source roots")
+        if not any(source.is_relative_to(root) for root in self._local_source_roots):
+            raise ExecutionFailedError("local artifact source is outside allowlisted roots")
+        output = await self._artifact_store.import_file(
+            request.artifact_id,
+            source,
+            request.artifact_type,
+        )
+        if (
+            request.expected_size_bytes is not None
+            and output.size_bytes != request.expected_size_bytes
+        ):
+            await self._artifact_store.delete(output.id)
+            raise ExecutionFailedError(
+                f"local artifact size is {output.size_bytes}, expected "
+                f"{request.expected_size_bytes}"
+            )
+        return output
 
     async def _pull_with_client(
         self,

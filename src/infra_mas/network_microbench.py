@@ -179,12 +179,25 @@ async def run_network_microbench(
         groups.setdefault(key, []).append(row)
     aggregates: list[dict[str, Any]] = []
     for key, items in groups.items():
-        scenario, mode, payload = key.split("|")
+        scenario, mode, payload_text = key.split("|")
         throughputs = [float(item["effective_throughput_mbps"]) for item in items]
         latencies = [float(item["transfer_latency_ms"]) for item in items]
+        baseline_rtts = [
+            float(item["icmp_rtt"]["avg_ms"])
+            for item in items
+            if isinstance(item.get("icmp_rtt"), dict)
+            and isinstance(item["icmp_rtt"].get("avg_ms"), (int, float))
+        ]
         aggregates.append({
-            "scenario": scenario, "mode": mode, "payload_bytes": int(payload),
+            "scenario": scenario,
+            "mode": mode,
+            "payload_bytes": int(payload_text),
             "flow_count": len(items),
+            "configured_bandwidth_mbps": items[0]["configured_bandwidth_mbps"],
+            "configured_added_rtt_ms": items[0]["configured_added_rtt_ms"],
+            "measured_baseline_rtt_mean_ms": (
+                sum(baseline_rtts) / len(baseline_rtts) if baseline_rtts else None
+            ),
             "mean_effective_throughput_mbps": sum(throughputs) / len(throughputs),
             "aggregate_effective_throughput_mbps": sum(throughputs),
             "max_transfer_latency_ms": max(latencies),
@@ -210,14 +223,27 @@ async def run_network_microbench(
         "All payloads moved directly between the three Jetson Workers; no 4090 endpoint was "
         "contacted. `single` runs one flow at a time across all six directions. `concurrent` "
         "runs the three-flow ring A4->A5->A28->A4 simultaneously.", "",
-        "| Scenario | Mode | Payload | Flows | Mean/flow Mbps | Aggregate Mbps | "
-        "Critical latency |",
-        "|---|---|---:|---:|---:|---:|---:|",
+        "| Scenario | Mode | Payload | Configured cap | Configured added RTT | "
+        "Measured baseline RTT | Flows | Measured mean/flow Mbps | "
+        "Measured aggregate Mbps | Measured max latency |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for item in aggregates:
+        configured_bandwidth = item["configured_bandwidth_mbps"]
+        bandwidth_label = (
+            "none"
+            if configured_bandwidth is None
+            else f"{float(configured_bandwidth):.1f} Mbps"
+        )
+        baseline_rtt = item["measured_baseline_rtt_mean_ms"]
+        baseline_rtt_label = (
+            "unavailable" if baseline_rtt is None else f"{float(baseline_rtt):.2f} ms"
+        )
         markdown.append(
             f"| {item['scenario']} | {item['mode']} | {item['payload_bytes'] / _MIB:.0f} MiB | "
-            f"{item['flow_count']} | {item['mean_effective_throughput_mbps']:.2f} | "
+            f"{bandwidth_label} | {item['configured_added_rtt_ms']:.1f} ms | "
+            f"{baseline_rtt_label} | {item['flow_count']} | "
+            f"{item['mean_effective_throughput_mbps']:.2f} | "
             f"{item['aggregate_effective_throughput_mbps']:.2f} | "
             f"{item['max_transfer_latency_ms'] / 1000:.3f}s |"
         )
@@ -225,10 +251,13 @@ async def run_network_microbench(
         "H1 100/300 MiB cells are explicitly unavailable: at 3 Mbps their ideal transfer "
         "times are about 280/839 seconds before physical-network overhead; the deployed "
         "Worker's source read timeout is 300 seconds. No latency was fabricated for them.", "",
-        "The simple `bytes / configured_bandwidth + RTT` model should be compared with "
-        "`transfer_latency_ms`: deviations include HTTP setup, application pacing granularity, "
-        "Wi-Fi jitter, and contention. Concurrent aggregate throughput exposes whether the "
-        "three flows share a physical WLAN bottleneck.",
+        "`configured_bandwidth_mbps` and `configured_added_rtt_ms` are application-layer "
+        "pacing inputs, not measured physical-link properties. `icmp_rtt` is the observed "
+        "unshaped baseline. `effective_throughput_mbps` and `transfer_latency_ms` are derived "
+        "from actual transferred bytes and measured elapsed time; deviations from the simple "
+        "`bytes / configured_bandwidth + added RTT` model include HTTP setup, pacing "
+        "granularity, Wi-Fi jitter, and contention. Concurrent aggregate effective throughput "
+        "exposes whether the three flows share a physical WLAN bottleneck.",
     ])
     (output_directory / "summary.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
     return summary

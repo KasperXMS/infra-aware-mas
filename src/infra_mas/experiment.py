@@ -15,7 +15,9 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from infra_mas.core.artifact import ArtifactRef
+from infra_mas.core.execution import BindLocalArtifactRequest
 from infra_mas.core.resource import NetworkLink
+from infra_mas.core.trace import TraceSink
 from infra_mas.execution.executor_registry import ExecutorRegistry
 from infra_mas.execution.manager import ExecutionManager
 from infra_mas.execution.transfer import TransferManager
@@ -87,6 +89,7 @@ class BlindExperimentConfig(BaseModel):
     infrastructure_visibility: InfrastructureVisibility = "none"
     input_worker: NonEmptyString | None = None
     input_workers: list[NonEmptyString] | None = None
+    input_source: Literal["controller_upload", "worker_local"] = "controller_upload"
     worker_timeout_seconds: Annotated[float, Field(gt=0)] = 300.0
     max_turns: Annotated[int, Field(gt=0)] = 10
     scheduler: SchedulerConfig
@@ -121,6 +124,7 @@ class PreflightResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workers: dict[str, list[str]]
+    operators: dict[str, list[str]] = Field(default_factory=dict)
 
 
 def resolve_config_path(path: Path, config_directory: Path) -> Path:
@@ -148,7 +152,9 @@ async def preflight_workers(
     for executor in registry.list():
         expected[executor.worker_id].add(executor.id)
 
-    async def check(worker_id: str, client: WorkerClient) -> tuple[str, list[str]]:
+    async def check(
+        worker_id: str, client: WorkerClient
+    ) -> tuple[str, list[str], list[str]]:
         await client.health()
         await client.ready()
         status = await client.status()
@@ -162,12 +168,15 @@ async def preflight_workers(
                 f"worker {worker_id!r} exposes executors {sorted(actual)}, "
                 f"expected {sorted(expected[worker_id])}"
             )
-        return worker_id, status.executors
+        return worker_id, status.executors, status.operators
 
     checked = await asyncio.gather(
         *(check(worker_id, client) for worker_id, client in clients.items())
     )
-    return PreflightResult(workers=dict(checked))
+    return PreflightResult(
+        workers={worker_id: executors for worker_id, executors, _ in checked},
+        operators={worker_id: operators for worker_id, _, operators in checked},
+    )
 
 
 def build_scheduler(
@@ -305,6 +314,84 @@ async def upload_placed_inputs(
     return uploaded
 
 
+async def bind_placed_inputs(
+    paths: Sequence[Path],
+    run_id: str,
+    worker_ids: Sequence[str],
+    clients: Mapping[str, WorkerClient],
+    *,
+    artifact_ids: Sequence[str] | None = None,
+    expected_size_bytes: Sequence[int | None] | None = None,
+    trace: TraceSink | None = None,
+) -> list[ArtifactRef]:
+    """Bind files already on their Workers without routing bytes through the controller."""
+    if len(paths) != len(worker_ids):
+        raise ValueError("input placement count must equal input artifact count")
+    if artifact_ids is not None and len(paths) != len(artifact_ids):
+        raise ValueError("artifact ID count must equal input artifact count")
+    if expected_size_bytes is not None and len(paths) != len(expected_size_bytes):
+        raise ValueError("expected size count must equal input artifact count")
+    unknown = sorted(set(worker_ids) - clients.keys())
+    if unknown:
+        raise ValueError(f"unknown input Workers: {unknown}")
+
+    bound: list[ArtifactRef] = []
+    for index, (path, worker_id) in enumerate(zip(paths, worker_ids, strict=True), start=1):
+        worker_source_path = path.as_posix()
+        binding = artifact_ids[index - 1] if artifact_ids is not None else path.name
+        safe_binding = re.sub(r"[^A-Za-z0-9._-]+", "-", binding).strip(".-")
+        if not safe_binding:
+            raise ValueError(f"invalid artifact ID: {binding!r}")
+        if path.suffix and not safe_binding.lower().endswith(path.suffix.lower()):
+            safe_binding += path.suffix
+        artifact_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        action_id = f"{run_id}/bind-{index:03d}"
+        if trace is not None:
+            await trace.record(
+                "artifact.bind.start",
+                action_id=action_id,
+                artifact_id=f"{run_id}/input-{index:03d}-{safe_binding}",
+                worker_id=worker_id,
+                source_path=worker_source_path,
+            )
+        try:
+            artifact = await clients[worker_id].bind_local_artifact(
+                BindLocalArtifactRequest(
+                    artifact_id=f"{run_id}/input-{index:03d}-{safe_binding}",
+                    source_path=worker_source_path,
+                    artifact_type=artifact_type,
+                    expected_size_bytes=(
+                        expected_size_bytes[index - 1]
+                        if expected_size_bytes is not None
+                        else None
+                    ),
+                )
+            )
+        except Exception as error:
+            if trace is not None:
+                await trace.record(
+                    "artifact.bind.end",
+                    action_id=action_id,
+                    artifact_id=f"{run_id}/input-{index:03d}-{safe_binding}",
+                    worker_id=worker_id,
+                    success=False,
+                    error_type=type(error).__name__,
+                    error=str(error),
+                )
+            raise
+        bound.append(artifact)
+        if trace is not None:
+            await trace.record(
+                "artifact.bind.end",
+                action_id=action_id,
+                artifact_id=artifact.id,
+                worker_id=worker_id,
+                size_bytes=artifact.size_bytes,
+                success=True,
+            )
+    return bound
+
+
 async def close_worker_clients(clients: Mapping[str, WorkerClient]) -> None:
     """Close all controller-side HTTP connection pools."""
     await asyncio.gather(*(client.aclose() for client in clients.values()))
@@ -354,6 +441,7 @@ async def run_blind_experiment(
     run_id: str | None = None,
     input_workers: Sequence[str] | None = None,
     artifact_ids: Sequence[str] | None = None,
+    input_expected_sizes: Sequence[int | None] | None = None,
     infrastructure_visibility: InfrastructureVisibility | None = None,
     network_links: Sequence[NetworkLink] | None = None,
     eligible_executor_ids: Sequence[str] | None = None,
@@ -423,12 +511,14 @@ async def run_blind_experiment(
         raise ValueError(f"unknown input Workers: {unknown_workers}")
 
     effective_run_id = run_id or f"blind-{uuid4().hex[:12]}"
+    opaque_namespace = f"opaque-{uuid4().hex}"
     trace = TraceRecorder(runs_root, effective_run_id, exclusive=True)
     clients = create_worker_clients(full_registry, config.worker_timeout_seconds)
     planner_client = None
     context: PlannerContext | None = None
     effective_config: dict[str, object] = {
         "run_id": effective_run_id,
+        "planner_opaque_namespace": opaque_namespace,
         "mode": effective_visibility,
         "planner_mode": config.planner_mode,
         "planner_harness": config.planner_harness,
@@ -444,10 +534,17 @@ async def run_blind_experiment(
         "temporary_root": str(temporary_root),
         "input_worker": config.input_worker,
         "input_workers": placements,
+        "input_source": config.input_source,
         "worker_timeout_seconds": config.worker_timeout_seconds,
         "max_turns": config.max_turns,
-        "input_paths": [str(path.resolve()) for path in inputs],
+        "input_paths": [
+            str(path.resolve()) if config.input_source == "controller_upload" else str(path)
+            for path in inputs
+        ],
         "input_artifact_ids": list(artifact_ids) if artifact_ids is not None else None,
+        "input_expected_sizes": (
+            list(input_expected_sizes) if input_expected_sizes is not None else None
+        ),
         "run_metadata": dict(run_metadata or {}),
         "eligible_executor_ids": (
             sorted(eligible_executor_ids) if eligible_executor_ids is not None else None
@@ -467,13 +564,24 @@ async def run_blind_experiment(
     await trace.start(effective_config)
     try:
         await preflight_workers(full_registry, clients)
-        initial_artifacts = await upload_placed_inputs(
-            inputs,
-            effective_run_id,
-            placements,
-            clients,
-            artifact_ids=artifact_ids,
-        )
+        if config.input_source == "worker_local":
+            initial_artifacts = await bind_placed_inputs(
+                inputs,
+                opaque_namespace,
+                placements,
+                clients,
+                artifact_ids=artifact_ids,
+                expected_size_bytes=input_expected_sizes,
+                trace=trace,
+            )
+        else:
+            initial_artifacts = await upload_placed_inputs(
+                inputs,
+                opaque_namespace,
+                placements,
+                clients,
+                artifact_ids=artifact_ids,
+            )
         transfer = TransferManager(clients, trace)
         manager = ExecutionManager(clients, transfer, trace)
         runtime = AgentRuntime(
@@ -481,7 +589,7 @@ async def run_blind_experiment(
             scheduler,
             manager,
             trace,
-            request_id_factory=lambda: f"{effective_run_id}/request-{uuid4().hex}",
+            request_id_factory=lambda: f"{opaque_namespace}/request-{uuid4().hex}",
             model_registry=models,
         )
         catalog = ArtifactCatalog(clients, temporary_root / "inspection", trace)
@@ -497,6 +605,7 @@ async def run_blind_experiment(
             planner_harness=config.planner_harness,
             resource_provider=resource_provider,
             infrastructure_visibility=effective_visibility,
+            action_namespace=opaque_namespace,
         )
         assert context.planning_ledger is not None
         initial_planning_state = await context.planning_ledger.snapshot()

@@ -160,7 +160,7 @@ async def run_local_profiles(
                 branch_start = datetime.now(UTC)
                 wall_start = perf_counter()
                 sampling_start = datetime.now(UTC)
-                sampled = await runtime.sample_frames(
+                sampled = await runtime.sample_frames_on_worker(
                     artifact,
                     worker_id,
                     duration_s=task.inputs[index].duration_s,

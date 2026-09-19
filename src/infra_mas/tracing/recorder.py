@@ -22,6 +22,7 @@ _ACTION_EVENT_TYPES: Final = frozenset(
         "planner.spawn_agent",
         "planner.finish",
         "planner.inspect_artifact",
+        "planner.media_operator",
         "planner.ledger.initialized",
         "planner.ledger.updated",
         "planner.llm.start",

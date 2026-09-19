@@ -12,10 +12,14 @@ from fastapi.responses import StreamingResponse
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ArtifactNotFoundError, ArtifactTransferError, ExecutionFailedError
 from infra_mas.core.execution import (
+    AggregateArtifactsRequest,
     ArtifactPullRequest,
+    BindLocalArtifactRequest,
     ExecutionRequest,
     ExecutionResult,
+    ExtractClipRequest,
     HealthResponse,
+    MakeContactSheetRequest,
     SampleFramesRequest,
     TransferResult,
     WorkerStatus,
@@ -100,6 +104,38 @@ def create_app(service: WorkerService) -> FastAPI:
         except ExecutionFailedError as error:
             raise HTTPException(status_code=502, detail=str(error)) from error
 
+    async def make_contact_sheet(request: MakeContactSheetRequest) -> ExecutionResult:
+        try:
+            return await service.make_contact_sheet(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def extract_clip(request: ExtractClipRequest) -> ExecutionResult:
+        try:
+            return await service.extract_clip(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def aggregate_artifacts(request: AggregateArtifactsRequest) -> ExecutionResult:
+        try:
+            return await service.aggregate_artifacts(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def bind_local_artifact(request: BindLocalArtifactRequest) -> ArtifactRef:
+        try:
+            return await service.bind_local_artifact(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+
     app.add_api_route("/health", health, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/ready", ready, methods=["GET"], response_model=HealthResponse)
     app.add_api_route("/status", status, methods=["GET"], response_model=WorkerStatus)
@@ -109,6 +145,30 @@ def create_app(service: WorkerService) -> FastAPI:
         sample_frames,
         methods=["POST"],
         response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/make-contact-sheet",
+        make_contact_sheet,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/extract-clip",
+        extract_clip,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/aggregate-artifacts",
+        aggregate_artifacts,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/artifacts/bind-local",
+        bind_local_artifact,
+        methods=["POST"],
+        response_model=ArtifactRef,
     )
     app.add_api_route("/artifacts/{artifact_id:path}", download_artifact, methods=["GET"])
     app.add_api_route("/artifacts", upload_artifact, methods=["POST"], response_model=ArtifactRef)

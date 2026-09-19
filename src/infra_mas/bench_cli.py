@@ -15,6 +15,7 @@ from infra_mas.network_microbench import run_network_microbench
 from infra_mas.planner.context import InfrastructureVisibility
 from infra_mas.planner_calibration_v0 import (
     preflight_planner_jetsons,
+    run_planner_experiment_cell,
     validate_planner_experiment_cells,
 )
 from infra_mas.semantic_switch import write_v1_semantic_switch_report
@@ -84,6 +85,16 @@ def build_planner_v0_check_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_planner_v0_run_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="infra-mas-bench run-planner-v0",
+        description="Run one Task 795 Planner cell with Worker-local input binding",
+    )
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--run-id")
+    return parser
+
+
 def build_stability_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="infra-mas-bench summarize-v1",
@@ -107,6 +118,13 @@ def build_semantic_switch_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "run-planner-v0":
+        args = build_planner_v0_run_parser().parse_args(sys.argv[2:])
+        answer, run_directory = asyncio.run(
+            run_planner_experiment_cell(args.manifest, run_id=args.run_id)
+        )
+        print(json.dumps({"answer": answer, "run_directory": str(run_directory)}))
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "network-microbench-v0":
         args = build_network_microbench_parser().parse_args(sys.argv[2:])
         payload = asyncio.run(run_network_microbench(args.executors, args.output))
@@ -132,10 +150,10 @@ def main() -> None:
                     "checked": False,
                 },
                 "capability_validation": {
-                    "status": "execution_blocked",
-                    "missing_planner_operator": "sample_frames",
-                    "direct_video_supported": False,
-                    "worker_local_source_binding_supported": False,
+                    "status": "config_ready",
+                    "generic_media_operators_configured": True,
+                    "direct_video_configured": True,
+                    "worker_local_source_binding_supported": True,
                 },
             }
         rendered = json.dumps(report, ensure_ascii=False, indent=2)

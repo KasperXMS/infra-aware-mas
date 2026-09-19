@@ -5,9 +5,12 @@ from uuid import uuid4
 
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.execution import (
+    AggregateArtifactsRequest,
     ExecutionRequest,
     ExecutionResult,
+    ExtractClipRequest,
     InvocationSpec,
+    MakeContactSheetRequest,
     SampleFramesRequest,
 )
 from infra_mas.core.trace import TraceSink
@@ -116,8 +119,8 @@ class AgentRuntime:
             agent=invocation.role,
             model_id=invocation.model_id,
             capability=executor.capability,
-            semantic_operator="invoke_model",
-            tool="invoke_model",
+            semantic_operator=invocation.semantic_operator,
+            tool=invocation.semantic_operator,
             task=invocation.task,
             input_artifacts=[artifact.id for artifact in invocation.input_artifacts],
         )
@@ -137,15 +140,57 @@ class AgentRuntime:
     async def sample_frames(
         self,
         artifact: ArtifactRef,
-        target_worker_id: str,
         *,
-        duration_s: float,
+        duration_s: float | None = None,
         sample_count: int = 20,
         columns: int = 5,
         frame_width: int = 448,
         parent_action_id: str | None = None,
     ) -> ExecutionResult:
-        """Execute the registered generic fixed-time sampling operator on one Worker."""
+        """Uniformly sample a video; runtime chooses a local capable Worker."""
+        return await self._sample_frames(
+            artifact,
+            target_worker_id=None,
+            duration_s=duration_s,
+            sample_count=sample_count,
+            columns=columns,
+            frame_width=frame_width,
+            parent_action_id=parent_action_id,
+        )
+
+    async def sample_frames_on_worker(
+        self,
+        artifact: ArtifactRef,
+        target_worker_id: str,
+        *,
+        duration_s: float | None = None,
+        sample_count: int = 20,
+        columns: int = 5,
+        frame_width: int = 448,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._sample_frames(
+            artifact,
+            target_worker_id=target_worker_id,
+            duration_s=duration_s,
+            sample_count=sample_count,
+            columns=columns,
+            frame_width=frame_width,
+            parent_action_id=parent_action_id,
+        )
+
+    async def _sample_frames(
+        self,
+        artifact: ArtifactRef,
+        *,
+        target_worker_id: str | None,
+        duration_s: float | None,
+        sample_count: int,
+        columns: int,
+        frame_width: int,
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
         request_id = self._request_id_factory()
         await self._trace.record(
             "execution.request",
@@ -170,6 +215,127 @@ class AgentRuntime:
                 frame_width=frame_width,
             ),
             target_worker_id,
+        )
+
+    async def make_contact_sheet(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        columns: int = 5,
+        duration_s: float | None = None,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Compose images on a locality-selected Worker."""
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "make_contact_sheet",
+            "Compose chronological image artifacts into a contact sheet.",
+            artifacts,
+            parent_action_id,
+        )
+        return await self._execution_manager.make_contact_sheet(
+            MakeContactSheetRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=f"{request_id.rsplit('/', 1)[0]}/sheet-{uuid4().hex}.jpg",
+                columns=columns,
+                duration_s=duration_s,
+            )
+        )
+
+    async def extract_clip(
+        self,
+        artifact: ArtifactRef,
+        *,
+        start_s: float,
+        end_s: float,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Extract a fixed interval on a locality-selected Worker."""
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "extract_clip",
+            f"Extract video interval [{start_s}, {end_s}) seconds.",
+            [artifact],
+            parent_action_id,
+        )
+        return await self._execution_manager.extract_clip(
+            ExtractClipRequest(
+                request_id=request_id,
+                input_artifact=artifact,
+                output_artifact_id=f"{request_id.rsplit('/', 1)[0]}/clip-{uuid4().hex}.mp4",
+                start_s=start_s,
+                end_s=end_s,
+            )
+        )
+
+    async def aggregate_artifacts(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Aggregate textual evidence on a locality-selected Worker."""
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "aggregate_artifacts",
+            "Aggregate textual semantic evidence into one structured artifact.",
+            artifacts,
+            parent_action_id,
+        )
+        return await self._execution_manager.aggregate_artifacts(
+            AggregateArtifactsRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=f"{request_id.rsplit('/', 1)[0]}/evidence-{uuid4().hex}.json",
+            )
+        )
+
+    async def process_local_artifact(
+        self,
+        *,
+        model_id: str,
+        role: str,
+        instructions: str,
+        task: str,
+        artifacts: list[ArtifactRef],
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Run model processing through normal capability/locality scheduling."""
+        return await self.invoke(
+            InvocationSpec(
+                model_id=model_id,
+                role=role,
+                instructions=instructions,
+                task=task,
+                input_artifacts=artifacts,
+                semantic_operator="process_local_artifact",
+            ),
+            parent_action_id=parent_action_id,
+        )
+
+    async def _record_operator_request(
+        self,
+        request_id: str,
+        operator: str,
+        task: str,
+        artifacts: list[ArtifactRef],
+        parent_action_id: str | None,
+    ) -> None:
+        await self._trace.record(
+            "execution.request",
+            action_id=request_id,
+            parent_action_id=parent_action_id,
+            request_id=request_id,
+            agent=operator,
+            capability="media_processing",
+            semantic_operator=operator,
+            tool=operator,
+            task=task,
+            input_artifacts=[artifact.id for artifact in artifacts],
         )
 
     @staticmethod

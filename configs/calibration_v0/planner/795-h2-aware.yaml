@@ -12,4 +12,4 @@ network:
   effective_rtt_ms: 33.0
 input_workers: [a4, a5, a28]
 eligible_executor_ids: [a4-vlm, a5-vlm, a28-vlm, strong-4090-vlm]
-planner_tools: [spawn_agent, inspect_artifact]
+planner_tools: [spawn_agent, inspect_artifact, sample_frames, make_contact_sheet, extract_clip, process_local_artifact, aggregate_artifacts]

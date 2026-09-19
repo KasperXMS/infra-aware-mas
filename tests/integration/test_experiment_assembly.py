@@ -3,13 +3,14 @@
 import json
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import cast
+from typing import ClassVar, cast
 
 import httpx
 import pytest
 import yaml
 
 from infra_mas.core.agent import AgentSpec
+from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.executor import ExecutorSpec
 from infra_mas.core.model import ModelSpec
 from infra_mas.execution.executor_registry import ExecutorRegistry
@@ -24,6 +25,7 @@ from infra_mas.experiment import (
     upload_inputs,
     upload_placed_inputs,
 )
+from infra_mas.planner.context import PlannerContext
 from infra_mas.planner.model_factory import PlannerModelConfig
 from infra_mas.runtime.agent_registry import AgentRegistry
 from infra_mas.runtime.model_registry import ModelRegistry
@@ -199,8 +201,13 @@ class FakeClosable:
 
 
 class FakeCoordinator:
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    observed_artifact_ids: ClassVar[list[str]] = []
+
+    def __init__(self, context: PlannerContext, *args: object, **kwargs: object) -> None:
         del args, kwargs
+        type(self).observed_artifact_ids = [
+            artifact.id for artifact in context.artifact_catalog.list()
+        ]
 
     async def run(self, task: str) -> str:
         assert task == "Reproduce this run."
@@ -295,18 +302,43 @@ planner:
         "infra_mas.experiment.create_planner_model",
         fake_create_planner_model,
     )
+    source = tmp_path / "input.txt"
+    source.write_text("input", encoding="utf-8")
+
+    async def fake_upload_placed_inputs(
+        paths: object,
+        artifact_namespace: str,
+        worker_ids: object,
+        clients: object,
+        *,
+        artifact_ids: object = None,
+    ) -> list[ArtifactRef]:
+        del paths, worker_ids, clients, artifact_ids
+        return [
+            ArtifactRef(
+                id=f"{artifact_namespace}/input-001.txt",
+                artifact_type="text/plain",
+                size_bytes=5,
+                locations=["worker-a"],
+            )
+        ]
+
+    monkeypatch.setattr(
+        "infra_mas.experiment.upload_placed_inputs", fake_upload_placed_inputs
+    )
     monkeypatch.setattr("infra_mas.experiment.Coordinator", FakeCoordinator)
+    FakeCoordinator.observed_artifact_ids = []
 
     answer, run_directory = await run_blind_experiment(
         config_path,
         "Reproduce this run.",
-        [],
-        run_id="run-config",
+        [source],
+        run_id="planner-795-h1-blind-r1",
     )
 
     assert answer == "answer"
     snapshot = yaml.safe_load((run_directory / "config.yaml").read_text(encoding="utf-8"))
-    assert snapshot["run_id"] == "run-config"
+    assert snapshot["run_id"] == "planner-795-h1-blind-r1"
     assert snapshot["task"] == "Reproduce this run."
     assert snapshot["resource_aware"] is False
     assert snapshot["agents"] == [
@@ -319,9 +351,14 @@ planner:
     ]
     assert snapshot["planner_mode"] == "static_agents"
     assert snapshot["planner_harness"] == "minimal"
+    opaque_id = FakeCoordinator.observed_artifact_ids[0]
+    assert "795" not in opaque_id
+    assert "h1" not in opaque_id
+    assert "blind" not in opaque_id
+    assert snapshot["planner_opaque_namespace"] in opaque_id
     assert snapshot["planning_ledger_initial_state"] == {
-        "initial_inputs": [],
-        "unused_initial_inputs": [],
+        "initial_inputs": [{"artifact_id": opaque_id, "use_count": 0}],
+        "unused_initial_inputs": [opaque_id],
         "completed_invocations": [],
     }
     assert snapshot["models"] == [
@@ -362,7 +399,7 @@ planner:
         await run_blind_experiment(
             config_path,
             "Reproduce this run.",
-            [],
-            run_id="run-config",
+            [source],
+            run_id="planner-795-h1-blind-r1",
         )
     assert (run_directory / "trace.jsonl").read_bytes() == original_trace

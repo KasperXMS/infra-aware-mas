@@ -18,6 +18,10 @@ OperatorId = Literal[
     "submit_patch",
     "read_artifact",
     "sample_frames",
+    "make_contact_sheet",
+    "extract_clip",
+    "process_local_artifact",
+    "aggregate_artifacts",
 ]
 
 
@@ -119,5 +123,15 @@ GENERAL_OPERATOR_REGISTRY = OperatorRegistry(
         OperatorBinding(operator_id="invoke_model", runtime_tool="delegate"),
         OperatorBinding(operator_id="read_artifact", runtime_tool="inspect_artifact"),
         OperatorBinding(operator_id="sample_frames", runtime_tool="worker.sample_frames"),
+        OperatorBinding(
+            operator_id="make_contact_sheet", runtime_tool="worker.make_contact_sheet"
+        ),
+        OperatorBinding(operator_id="extract_clip", runtime_tool="worker.extract_clip"),
+        OperatorBinding(
+            operator_id="process_local_artifact", runtime_tool="process_local_artifact"
+        ),
+        OperatorBinding(
+            operator_id="aggregate_artifacts", runtime_tool="worker.aggregate_artifacts"
+        ),
     ]
 )
