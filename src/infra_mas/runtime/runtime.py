@@ -1,17 +1,28 @@
 """Semantic-to-physical agent runtime boundary."""
 
 from collections.abc import Callable
+from typing import Literal
 from uuid import uuid4
 
 from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.execution import (
     AggregateArtifactsRequest,
+    AggregateRecordsRequest,
+    BM25RetrieveRequest,
+    DeriveFieldsRequest,
     ExecutionRequest,
     ExecutionResult,
     ExtractClipRequest,
+    FilterRecordsRequest,
     InvocationSpec,
     MakeContactSheetRequest,
+    RecordAggregation,
+    RecordDerivation,
+    RecordPredicate,
+    RecordSort,
     SampleFramesRequest,
+    SelectFieldsRequest,
+    TopKRecordsRequest,
 )
 from infra_mas.core.trace import TraceSink
 from infra_mas.execution.manager import ExecutionManager
@@ -294,6 +305,390 @@ class AgentRuntime:
             )
         )
 
+    async def bm25_retrieve(
+        self,
+        query: str,
+        artifacts: list[ArtifactRef],
+        *,
+        top_k: int = 3,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Rank a text shard; runtime selects the most artifact-local capable Worker."""
+        return await self._bm25_retrieve(
+            query,
+            artifacts,
+            target_worker_id=None,
+            top_k=top_k,
+            parent_action_id=parent_action_id,
+        )
+
+    async def bm25_retrieve_on_worker(
+        self,
+        query: str,
+        artifacts: list[ArtifactRef],
+        target_worker_id: str,
+        *,
+        top_k: int = 3,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._bm25_retrieve(
+            query,
+            artifacts,
+            target_worker_id=target_worker_id,
+            top_k=top_k,
+            parent_action_id=parent_action_id,
+        )
+
+    async def _bm25_retrieve(
+        self,
+        query: str,
+        artifacts: list[ArtifactRef],
+        *,
+        target_worker_id: str | None,
+        top_k: int,
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "bm25_retrieve",
+            "Rank a local text shard with deterministic BM25.",
+            artifacts,
+            parent_action_id,
+            capability="text_retrieval",
+        )
+        return await self._execution_manager.bm25_retrieve(
+            BM25RetrieveRequest(
+                request_id=request_id,
+                query=query,
+                input_artifacts=artifacts,
+                output_artifact_id=(
+                    f"{request_id.rsplit('/', 1)[0]}/bm25-{uuid4().hex}.json"
+                ),
+                top_k=top_k,
+            ),
+            target_worker_id,
+        )
+
+    async def filter_records(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        predicates: list[RecordPredicate],
+        match: Literal["all", "any"] = "all",
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Filter JSON records on the most artifact-local capable Worker."""
+        return await self._filter_records(
+            artifacts,
+            target_worker_id=None,
+            predicates=predicates,
+            match=match,
+            parent_action_id=parent_action_id,
+        )
+
+    async def filter_records_on_worker(
+        self,
+        artifacts: list[ArtifactRef],
+        target_worker_id: str,
+        *,
+        predicates: list[RecordPredicate],
+        match: Literal["all", "any"] = "all",
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._filter_records(
+            artifacts,
+            target_worker_id=target_worker_id,
+            predicates=predicates,
+            match=match,
+            parent_action_id=parent_action_id,
+        )
+
+    async def _filter_records(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        target_worker_id: str | None,
+        predicates: list[RecordPredicate],
+        match: Literal["all", "any"],
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "filter_records",
+            "Filter generic JSON records with deterministic predicates.",
+            artifacts,
+            parent_action_id,
+            capability="structured_data_processing",
+        )
+        return await self._execution_manager.filter_records(
+            FilterRecordsRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=(
+                    f"{request_id.rsplit('/', 1)[0]}/filtered-{uuid4().hex}.json"
+                ),
+                predicates=predicates,
+                match=match,
+            ),
+            target_worker_id,
+        )
+
+    async def select_fields(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        fields: list[str],
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Project JSON records on the most artifact-local capable Worker."""
+        return await self._select_fields(
+            artifacts,
+            target_worker_id=None,
+            fields=fields,
+            parent_action_id=parent_action_id,
+        )
+
+    async def select_fields_on_worker(
+        self,
+        artifacts: list[ArtifactRef],
+        target_worker_id: str,
+        *,
+        fields: list[str],
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._select_fields(
+            artifacts,
+            target_worker_id=target_worker_id,
+            fields=fields,
+            parent_action_id=parent_action_id,
+        )
+
+    async def _select_fields(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        target_worker_id: str | None,
+        fields: list[str],
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "select_fields",
+            "Project generic JSON records onto explicit fields.",
+            artifacts,
+            parent_action_id,
+            capability="structured_data_processing",
+        )
+        return await self._execution_manager.select_fields(
+            SelectFieldsRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=(
+                    f"{request_id.rsplit('/', 1)[0]}/selected-{uuid4().hex}.json"
+                ),
+                fields=fields,
+            ),
+            target_worker_id,
+        )
+
+    async def aggregate_records(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        aggregations: list[RecordAggregation],
+        group_by: list[str] | None = None,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Aggregate JSON records on the most artifact-local capable Worker."""
+        return await self._aggregate_records(
+            artifacts,
+            target_worker_id=None,
+            aggregations=aggregations,
+            group_by=group_by or [],
+            parent_action_id=parent_action_id,
+        )
+
+    async def aggregate_records_on_worker(
+        self,
+        artifacts: list[ArtifactRef],
+        target_worker_id: str,
+        *,
+        aggregations: list[RecordAggregation],
+        group_by: list[str] | None = None,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._aggregate_records(
+            artifacts,
+            target_worker_id=target_worker_id,
+            aggregations=aggregations,
+            group_by=group_by or [],
+            parent_action_id=parent_action_id,
+        )
+
+    async def _aggregate_records(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        target_worker_id: str | None,
+        aggregations: list[RecordAggregation],
+        group_by: list[str],
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "aggregate_records",
+            "Group and aggregate generic JSON records deterministically.",
+            artifacts,
+            parent_action_id,
+            capability="structured_data_processing",
+        )
+        return await self._execution_manager.aggregate_records(
+            AggregateRecordsRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=(
+                    f"{request_id.rsplit('/', 1)[0]}/aggregation-{uuid4().hex}.json"
+                ),
+                aggregations=aggregations,
+                group_by=group_by,
+            ),
+            target_worker_id,
+        )
+
+    async def derive_fields(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        derivations: list[RecordDerivation],
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Derive safe arithmetic fields on the most artifact-local capable Worker."""
+        return await self._derive_fields(
+            artifacts,
+            target_worker_id=None,
+            derivations=derivations,
+            parent_action_id=parent_action_id,
+        )
+
+    async def derive_fields_on_worker(
+        self,
+        artifacts: list[ArtifactRef],
+        target_worker_id: str,
+        *,
+        derivations: list[RecordDerivation],
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._derive_fields(
+            artifacts,
+            target_worker_id=target_worker_id,
+            derivations=derivations,
+            parent_action_id=parent_action_id,
+        )
+
+    async def _derive_fields(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        target_worker_id: str | None,
+        derivations: list[RecordDerivation],
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "derive_fields",
+            "Derive safe arithmetic fields from generic JSON records.",
+            artifacts,
+            parent_action_id,
+            capability="structured_data_processing",
+        )
+        return await self._execution_manager.derive_fields(
+            DeriveFieldsRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=(
+                    f"{request_id.rsplit('/', 1)[0]}/derived-{uuid4().hex}.json"
+                ),
+                derivations=derivations,
+            ),
+            target_worker_id,
+        )
+
+    async def top_k_records(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        order_by: list[RecordSort],
+        limit: int,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Retain an ordered record prefix on the most artifact-local capable Worker."""
+        return await self._top_k_records(
+            artifacts,
+            target_worker_id=None,
+            order_by=order_by,
+            limit=limit,
+            parent_action_id=parent_action_id,
+        )
+
+    async def top_k_records_on_worker(
+        self,
+        artifacts: list[ArtifactRef],
+        target_worker_id: str,
+        *,
+        order_by: list[RecordSort],
+        limit: int,
+        parent_action_id: str | None = None,
+    ) -> ExecutionResult:
+        """Internal fixed-site adapter used by reference measurement workflows."""
+        return await self._top_k_records(
+            artifacts,
+            target_worker_id=target_worker_id,
+            order_by=order_by,
+            limit=limit,
+            parent_action_id=parent_action_id,
+        )
+
+    async def _top_k_records(
+        self,
+        artifacts: list[ArtifactRef],
+        *,
+        target_worker_id: str | None,
+        order_by: list[RecordSort],
+        limit: int,
+        parent_action_id: str | None,
+    ) -> ExecutionResult:
+        request_id = self._request_id_factory()
+        await self._record_operator_request(
+            request_id,
+            "top_k_records",
+            "Order generic JSON records deterministically and retain a prefix.",
+            artifacts,
+            parent_action_id,
+            capability="structured_data_processing",
+        )
+        return await self._execution_manager.top_k_records(
+            TopKRecordsRequest(
+                request_id=request_id,
+                input_artifacts=artifacts,
+                output_artifact_id=(
+                    f"{request_id.rsplit('/', 1)[0]}/top-k-{uuid4().hex}.json"
+                ),
+                order_by=order_by,
+                limit=limit,
+            ),
+            target_worker_id,
+        )
+
     async def process_local_artifact(
         self,
         *,
@@ -324,6 +719,8 @@ class AgentRuntime:
         task: str,
         artifacts: list[ArtifactRef],
         parent_action_id: str | None,
+        *,
+        capability: str = "media_processing",
     ) -> None:
         await self._trace.record(
             "execution.request",
@@ -331,7 +728,7 @@ class AgentRuntime:
             parent_action_id=parent_action_id,
             request_id=request_id,
             agent=operator,
-            capability="media_processing",
+            capability=capability,
             semantic_operator=operator,
             tool=operator,
             task=task,

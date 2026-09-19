@@ -1,0 +1,6 @@
+models:
+  edge-text-reasoner:
+    description: Common text reasoning model; reference workflows always select A28.
+    input_modalities: [text]
+    output_modalities: [text]
+    context_window: 8192

@@ -1,0 +1,584 @@
+models_config: models.yaml
+executors_config: executors.yaml
+final_model_id: edge-text-reasoner
+final_executor_id: a28-vlm
+input_source: worker_local
+candidate_top_n: 30
+local_top_k_per_shard: 3
+tasks:
+- task_id: multihop-rag-train-9bae0079038050a37a1ae583
+  query: Does the Polygon Diablo 4 guide for Sorcerer builds in season 2 provide simplified
+    versions of the builds in a similar manner to how the Polygon Diablo 4 guide for
+    Barbarian builds does for the same season?
+  evaluator_id: multihop_rag_official_token_intersection
+  inputs:
+  - document_id: mhr-doc-92f18d01477dbdd58bf98ac0
+    artifact_id: mhr-doc-92f18d01477dbdd58bf98ac0
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-92f18d01477dbdd58bf98ac0.json
+    worker_id: a5
+    expected_size_bytes: 10366
+    expected_tokens: 1649
+  - document_id: mhr-doc-47e158bf93cbf3e6ee8c5ea6
+    artifact_id: mhr-doc-47e158bf93cbf3e6ee8c5ea6
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-47e158bf93cbf3e6ee8c5ea6.json
+    worker_id: a4
+    expected_size_bytes: 10446
+    expected_tokens: 1647
+  - document_id: mhr-doc-f2399d8c3fa525cf51ec3fd1
+    artifact_id: mhr-doc-f2399d8c3fa525cf51ec3fd1
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-f2399d8c3fa525cf51ec3fd1.json
+    worker_id: a28
+    expected_size_bytes: 15224
+    expected_tokens: 2633
+  - document_id: mhr-doc-7a5ecb2a40f84b7c23a198b1
+    artifact_id: mhr-doc-7a5ecb2a40f84b7c23a198b1
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-7a5ecb2a40f84b7c23a198b1.json
+    worker_id: a28
+    expected_size_bytes: 6940
+    expected_tokens: 1197
+  - document_id: mhr-doc-07ed19a8b131ffd33a42d28a
+    artifact_id: mhr-doc-07ed19a8b131ffd33a42d28a
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-07ed19a8b131ffd33a42d28a.json
+    worker_id: a5
+    expected_size_bytes: 9903
+    expected_tokens: 1622
+  - document_id: mhr-doc-45977278332e9002d150f01d
+    artifact_id: mhr-doc-45977278332e9002d150f01d
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-45977278332e9002d150f01d.json
+    worker_id: a5
+    expected_size_bytes: 70847
+    expected_tokens: 12091
+  - document_id: mhr-doc-48e251fc858384f4f61fb32c
+    artifact_id: mhr-doc-48e251fc858384f4f61fb32c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-48e251fc858384f4f61fb32c.json
+    worker_id: a4
+    expected_size_bytes: 12763
+    expected_tokens: 2167
+  - document_id: mhr-doc-d0319e94750790fb90373d9b
+    artifact_id: mhr-doc-d0319e94750790fb90373d9b
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-d0319e94750790fb90373d9b.json
+    worker_id: a4
+    expected_size_bytes: 6001
+    expected_tokens: 1058
+  - document_id: mhr-doc-ead14254b28eb9d43cb16b4e
+    artifact_id: mhr-doc-ead14254b28eb9d43cb16b4e
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-ead14254b28eb9d43cb16b4e.json
+    worker_id: a4
+    expected_size_bytes: 14154
+    expected_tokens: 2420
+  - document_id: mhr-doc-e18c0d998ae71e5860e2e3f8
+    artifact_id: mhr-doc-e18c0d998ae71e5860e2e3f8
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-e18c0d998ae71e5860e2e3f8.json
+    worker_id: a28
+    expected_size_bytes: 7982
+    expected_tokens: 1331
+  - document_id: mhr-doc-f4d5dc1a93a50d90f8e29b93
+    artifact_id: mhr-doc-f4d5dc1a93a50d90f8e29b93
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-f4d5dc1a93a50d90f8e29b93.json
+    worker_id: a5
+    expected_size_bytes: 14466
+    expected_tokens: 2337
+  - document_id: mhr-doc-7065b6e46e61ffc8dcd6a133
+    artifact_id: mhr-doc-7065b6e46e61ffc8dcd6a133
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-7065b6e46e61ffc8dcd6a133.json
+    worker_id: a28
+    expected_size_bytes: 47515
+    expected_tokens: 8076
+  - document_id: mhr-doc-1ed8c1762bc54059c40b7407
+    artifact_id: mhr-doc-1ed8c1762bc54059c40b7407
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-1ed8c1762bc54059c40b7407.json
+    worker_id: a28
+    expected_size_bytes: 15554
+    expected_tokens: 2581
+  - document_id: mhr-doc-0eba0be487fc60f6e002d766
+    artifact_id: mhr-doc-0eba0be487fc60f6e002d766
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-0eba0be487fc60f6e002d766.json
+    worker_id: a28
+    expected_size_bytes: 11015
+    expected_tokens: 2093
+  - document_id: mhr-doc-46aa7eb1408cd3e9c191aed3
+    artifact_id: mhr-doc-46aa7eb1408cd3e9c191aed3
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-46aa7eb1408cd3e9c191aed3.json
+    worker_id: a4
+    expected_size_bytes: 17155
+    expected_tokens: 3129
+  - document_id: mhr-doc-a1ac328567041cd815c0d114
+    artifact_id: mhr-doc-a1ac328567041cd815c0d114
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-a1ac328567041cd815c0d114.json
+    worker_id: a5
+    expected_size_bytes: 22197
+    expected_tokens: 3571
+  - document_id: mhr-doc-1c794a81c828b42fed2dbef9
+    artifact_id: mhr-doc-1c794a81c828b42fed2dbef9
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-1c794a81c828b42fed2dbef9.json
+    worker_id: a5
+    expected_size_bytes: 18894
+    expected_tokens: 3095
+  - document_id: mhr-doc-aaa1179e65ad0fb4bb7e12c5
+    artifact_id: mhr-doc-aaa1179e65ad0fb4bb7e12c5
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-aaa1179e65ad0fb4bb7e12c5.json
+    worker_id: a5
+    expected_size_bytes: 5655
+    expected_tokens: 1053
+  - document_id: mhr-doc-823a6d1371f34fff94ccda1a
+    artifact_id: mhr-doc-823a6d1371f34fff94ccda1a
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-823a6d1371f34fff94ccda1a.json
+    worker_id: a4
+    expected_size_bytes: 32115
+    expected_tokens: 5544
+  - document_id: mhr-doc-74b1583eb6f4c5a1e2f4d705
+    artifact_id: mhr-doc-74b1583eb6f4c5a1e2f4d705
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-74b1583eb6f4c5a1e2f4d705.json
+    worker_id: a28
+    expected_size_bytes: 14759
+    expected_tokens: 2446
+  - document_id: mhr-doc-6e0c8ad93f24693af2c1980c
+    artifact_id: mhr-doc-6e0c8ad93f24693af2c1980c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-6e0c8ad93f24693af2c1980c.json
+    worker_id: a5
+    expected_size_bytes: 45255
+    expected_tokens: 8366
+  - document_id: mhr-doc-43d3d1ee69cf277a66141888
+    artifact_id: mhr-doc-43d3d1ee69cf277a66141888
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-43d3d1ee69cf277a66141888.json
+    worker_id: a4
+    expected_size_bytes: 71932
+    expected_tokens: 13108
+  - document_id: mhr-doc-358eb7791e25736d4833eaff
+    artifact_id: mhr-doc-358eb7791e25736d4833eaff
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-358eb7791e25736d4833eaff.json
+    worker_id: a5
+    expected_size_bytes: 34386
+    expected_tokens: 6361
+  - document_id: mhr-doc-2ac85573e19c85506e83505e
+    artifact_id: mhr-doc-2ac85573e19c85506e83505e
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A28/mhr-doc-2ac85573e19c85506e83505e.json
+    worker_id: a28
+    expected_size_bytes: 10091
+    expected_tokens: 1802
+  - document_id: mhr-doc-40bcbee27dc80ec0b115eaca
+    artifact_id: mhr-doc-40bcbee27dc80ec0b115eaca
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-40bcbee27dc80ec0b115eaca.json
+    worker_id: a5
+    expected_size_bytes: 6879
+    expected_tokens: 1169
+  - document_id: mhr-doc-f1e2f0b3f44d3fd1764e95a9
+    artifact_id: mhr-doc-f1e2f0b3f44d3fd1764e95a9
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A4/mhr-doc-f1e2f0b3f44d3fd1764e95a9.json
+    worker_id: a4
+    expected_size_bytes: 62490
+    expected_tokens: 10352
+  - document_id: mhr-doc-d8638922cb53e39dc77df582
+    artifact_id: mhr-doc-d8638922cb53e39dc77df582
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-d8638922cb53e39dc77df582.json
+    worker_id: a5
+    expected_size_bytes: 9179
+    expected_tokens: 1564
+  - document_id: mhr-doc-1c10c269f022e136b69a55b0
+    artifact_id: mhr-doc-1c10c269f022e136b69a55b0
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-1c10c269f022e136b69a55b0.json
+    worker_id: a5
+    expected_size_bytes: 48564
+    expected_tokens: 7828
+  - document_id: mhr-doc-8f66436a409ac50ad40e70e6
+    artifact_id: mhr-doc-8f66436a409ac50ad40e70e6
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-8f66436a409ac50ad40e70e6.json
+    worker_id: a5
+    expected_size_bytes: 9426
+    expected_tokens: 1556
+  - document_id: mhr-doc-13ed85815ef9b195437ba5ae
+    artifact_id: mhr-doc-13ed85815ef9b195437ba5ae
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m2/artifacts/A5/mhr-doc-13ed85815ef9b195437ba5ae.json
+    worker_id: a5
+    expected_size_bytes: 8865
+    expected_tokens: 1544
+- task_id: multihop-rag-train-0071e3a68e90c2896fc7fce7
+  query: After the Polygon report on the Steam Deck OLED published at 18:00:00 on
+    November 9, 2023, and the Engadget review of the Steam Deck OLED published at
+    18:00:38 on the same day, was the information about the improvements in the new
+    iteration of the Steam Deck consistent?
+  evaluator_id: multihop_rag_official_token_intersection
+  inputs:
+  - document_id: mhr-doc-13ed85815ef9b195437ba5ae
+    artifact_id: mhr-doc-13ed85815ef9b195437ba5ae
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-13ed85815ef9b195437ba5ae.json
+    worker_id: a5
+    expected_size_bytes: 8865
+    expected_tokens: 1544
+  - document_id: mhr-doc-60adf2d843a493937a62f795
+    artifact_id: mhr-doc-60adf2d843a493937a62f795
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-60adf2d843a493937a62f795.json
+    worker_id: a28
+    expected_size_bytes: 9735
+    expected_tokens: 1721
+  - document_id: mhr-doc-4cf771721a34b73453c60584
+    artifact_id: mhr-doc-4cf771721a34b73453c60584
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A4/mhr-doc-4cf771721a34b73453c60584.json
+    worker_id: a4
+    expected_size_bytes: 6358
+    expected_tokens: 1102
+  - document_id: mhr-doc-6e0c8ad93f24693af2c1980c
+    artifact_id: mhr-doc-6e0c8ad93f24693af2c1980c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-6e0c8ad93f24693af2c1980c.json
+    worker_id: a5
+    expected_size_bytes: 45255
+    expected_tokens: 8366
+  - document_id: mhr-doc-90115892cf3a25c76b8c32c2
+    artifact_id: mhr-doc-90115892cf3a25c76b8c32c2
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-90115892cf3a25c76b8c32c2.json
+    worker_id: a28
+    expected_size_bytes: 17620
+    expected_tokens: 3283
+  - document_id: mhr-doc-ee1aaf5da930304776d39b48
+    artifact_id: mhr-doc-ee1aaf5da930304776d39b48
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-ee1aaf5da930304776d39b48.json
+    worker_id: a28
+    expected_size_bytes: 10885
+    expected_tokens: 1976
+  - document_id: mhr-doc-3e663871f7e829ef90b4f269
+    artifact_id: mhr-doc-3e663871f7e829ef90b4f269
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-3e663871f7e829ef90b4f269.json
+    worker_id: a5
+    expected_size_bytes: 5761
+    expected_tokens: 1030
+  - document_id: mhr-doc-f4d5dc1a93a50d90f8e29b93
+    artifact_id: mhr-doc-f4d5dc1a93a50d90f8e29b93
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-f4d5dc1a93a50d90f8e29b93.json
+    worker_id: a5
+    expected_size_bytes: 14466
+    expected_tokens: 2337
+  - document_id: mhr-doc-1c794a81c828b42fed2dbef9
+    artifact_id: mhr-doc-1c794a81c828b42fed2dbef9
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-1c794a81c828b42fed2dbef9.json
+    worker_id: a5
+    expected_size_bytes: 18894
+    expected_tokens: 3095
+  - document_id: mhr-doc-1ddc82f8a464f5ef29437b1f
+    artifact_id: mhr-doc-1ddc82f8a464f5ef29437b1f
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-1ddc82f8a464f5ef29437b1f.json
+    worker_id: a5
+    expected_size_bytes: 12926
+    expected_tokens: 2335
+  - document_id: mhr-doc-d1312fd73cd941c553c36e2e
+    artifact_id: mhr-doc-d1312fd73cd941c553c36e2e
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-d1312fd73cd941c553c36e2e.json
+    worker_id: a5
+    expected_size_bytes: 15127
+    expected_tokens: 2814
+  - document_id: mhr-doc-013c23c714e79d89917b5f47
+    artifact_id: mhr-doc-013c23c714e79d89917b5f47
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A4/mhr-doc-013c23c714e79d89917b5f47.json
+    worker_id: a4
+    expected_size_bytes: 24897
+    expected_tokens: 4396
+  - document_id: mhr-doc-6dde2a53e6174bfd9f493108
+    artifact_id: mhr-doc-6dde2a53e6174bfd9f493108
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A4/mhr-doc-6dde2a53e6174bfd9f493108.json
+    worker_id: a4
+    expected_size_bytes: 14294
+    expected_tokens: 2644
+  - document_id: mhr-doc-48e251fc858384f4f61fb32c
+    artifact_id: mhr-doc-48e251fc858384f4f61fb32c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A4/mhr-doc-48e251fc858384f4f61fb32c.json
+    worker_id: a4
+    expected_size_bytes: 12763
+    expected_tokens: 2167
+  - document_id: mhr-doc-679e4865af0d3e237bf714f6
+    artifact_id: mhr-doc-679e4865af0d3e237bf714f6
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-679e4865af0d3e237bf714f6.json
+    worker_id: a28
+    expected_size_bytes: 16937
+    expected_tokens: 2626
+  - document_id: mhr-doc-3d179a7fdead2f0800755b6f
+    artifact_id: mhr-doc-3d179a7fdead2f0800755b6f
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-3d179a7fdead2f0800755b6f.json
+    worker_id: a28
+    expected_size_bytes: 6568
+    expected_tokens: 1077
+  - document_id: mhr-doc-6be30a1c3114b611597079d4
+    artifact_id: mhr-doc-6be30a1c3114b611597079d4
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-6be30a1c3114b611597079d4.json
+    worker_id: a5
+    expected_size_bytes: 13464
+    expected_tokens: 2495
+  - document_id: mhr-doc-644da27d8aa04f8244a5925f
+    artifact_id: mhr-doc-644da27d8aa04f8244a5925f
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-644da27d8aa04f8244a5925f.json
+    worker_id: a28
+    expected_size_bytes: 26315
+    expected_tokens: 4181
+  - document_id: mhr-doc-45977278332e9002d150f01d
+    artifact_id: mhr-doc-45977278332e9002d150f01d
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-45977278332e9002d150f01d.json
+    worker_id: a5
+    expected_size_bytes: 70847
+    expected_tokens: 12091
+  - document_id: mhr-doc-e2810902bfa017683b951bfe
+    artifact_id: mhr-doc-e2810902bfa017683b951bfe
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-e2810902bfa017683b951bfe.json
+    worker_id: a5
+    expected_size_bytes: 12294
+    expected_tokens: 2239
+  - document_id: mhr-doc-deb182207747bf5e16f68274
+    artifact_id: mhr-doc-deb182207747bf5e16f68274
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A4/mhr-doc-deb182207747bf5e16f68274.json
+    worker_id: a4
+    expected_size_bytes: 22774
+    expected_tokens: 4012
+  - document_id: mhr-doc-ef39c636ba3ba8037abf5758
+    artifact_id: mhr-doc-ef39c636ba3ba8037abf5758
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-ef39c636ba3ba8037abf5758.json
+    worker_id: a28
+    expected_size_bytes: 11919
+    expected_tokens: 1938
+  - document_id: mhr-doc-6fedc7b6b35ce18b9155dade
+    artifact_id: mhr-doc-6fedc7b6b35ce18b9155dade
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-6fedc7b6b35ce18b9155dade.json
+    worker_id: a5
+    expected_size_bytes: 22759
+    expected_tokens: 4154
+  - document_id: mhr-doc-d0319e94750790fb90373d9b
+    artifact_id: mhr-doc-d0319e94750790fb90373d9b
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A4/mhr-doc-d0319e94750790fb90373d9b.json
+    worker_id: a4
+    expected_size_bytes: 6001
+    expected_tokens: 1058
+  - document_id: mhr-doc-6deaf2ea586086172de5286f
+    artifact_id: mhr-doc-6deaf2ea586086172de5286f
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-6deaf2ea586086172de5286f.json
+    worker_id: a5
+    expected_size_bytes: 9569
+    expected_tokens: 1610
+  - document_id: mhr-doc-1c10c269f022e136b69a55b0
+    artifact_id: mhr-doc-1c10c269f022e136b69a55b0
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A5/mhr-doc-1c10c269f022e136b69a55b0.json
+    worker_id: a5
+    expected_size_bytes: 48564
+    expected_tokens: 7828
+  - document_id: mhr-doc-1ed8c1762bc54059c40b7407
+    artifact_id: mhr-doc-1ed8c1762bc54059c40b7407
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-1ed8c1762bc54059c40b7407.json
+    worker_id: a28
+    expected_size_bytes: 15554
+    expected_tokens: 2581
+  - document_id: mhr-doc-e19eaff99fc25a60559199e7
+    artifact_id: mhr-doc-e19eaff99fc25a60559199e7
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-e19eaff99fc25a60559199e7.json
+    worker_id: a28
+    expected_size_bytes: 23230
+    expected_tokens: 4481
+  - document_id: mhr-doc-5f938e36a0161810b7585003
+    artifact_id: mhr-doc-5f938e36a0161810b7585003
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-5f938e36a0161810b7585003.json
+    worker_id: a28
+    expected_size_bytes: 37523
+    expected_tokens: 6115
+  - document_id: mhr-doc-0cf8b7ba6fdaf7561bf0e9b9
+    artifact_id: mhr-doc-0cf8b7ba6fdaf7561bf0e9b9
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m3/artifacts/A28/mhr-doc-0cf8b7ba6fdaf7561bf0e9b9.json
+    worker_id: a28
+    expected_size_bytes: 10349
+    expected_tokens: 1741
+- task_id: multihop-rag-train-9fec8a884e51ff8e037c394f
+  query: Considering the reported details from 'The Independent - Life and Style'
+    regarding Jada Pinkett Smith's memoir, the undisclosed efforts in their relationship,
+    the timeframe of their separation mentioned at the 2022 Academy Awards, and Jada's
+    pre-marital views on divorce, what longstanding Hollywood couple's union embodies
+    these aspects and has faced public scrutiny despite a commitment made before their
+    marriage to remain under the same roof?
+  evaluator_id: multihop_rag_official_token_intersection
+  inputs:
+  - document_id: mhr-doc-dbed49071c81c71adf0ada00
+    artifact_id: mhr-doc-dbed49071c81c71adf0ada00
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-dbed49071c81c71adf0ada00.json
+    worker_id: a5
+    expected_size_bytes: 13496
+    expected_tokens: 2318
+  - document_id: mhr-doc-2bd4b7dab0d9dc7a6ab70b90
+    artifact_id: mhr-doc-2bd4b7dab0d9dc7a6ab70b90
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-2bd4b7dab0d9dc7a6ab70b90.json
+    worker_id: a4
+    expected_size_bytes: 8658
+    expected_tokens: 1501
+  - document_id: mhr-doc-36bd4edd361156e8b8b6c240
+    artifact_id: mhr-doc-36bd4edd361156e8b8b6c240
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-36bd4edd361156e8b8b6c240.json
+    worker_id: a28
+    expected_size_bytes: 5286
+    expected_tokens: 914
+  - document_id: mhr-doc-4730a05bd5e786bf399997fd
+    artifact_id: mhr-doc-4730a05bd5e786bf399997fd
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-4730a05bd5e786bf399997fd.json
+    worker_id: a5
+    expected_size_bytes: 5482
+    expected_tokens: 929
+  - document_id: mhr-doc-1133e55cca4935f8f175d58b
+    artifact_id: mhr-doc-1133e55cca4935f8f175d58b
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-1133e55cca4935f8f175d58b.json
+    worker_id: a28
+    expected_size_bytes: 12723
+    expected_tokens: 2086
+  - document_id: mhr-doc-c856ed0e658451f4b8fa5aa0
+    artifact_id: mhr-doc-c856ed0e658451f4b8fa5aa0
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-c856ed0e658451f4b8fa5aa0.json
+    worker_id: a4
+    expected_size_bytes: 8455
+    expected_tokens: 1355
+  - document_id: mhr-doc-338b8d4639a655ffbf7fd20c
+    artifact_id: mhr-doc-338b8d4639a655ffbf7fd20c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-338b8d4639a655ffbf7fd20c.json
+    worker_id: a5
+    expected_size_bytes: 10273
+    expected_tokens: 1737
+  - document_id: mhr-doc-b1eaa23527f3e61a87382f4b
+    artifact_id: mhr-doc-b1eaa23527f3e61a87382f4b
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-b1eaa23527f3e61a87382f4b.json
+    worker_id: a5
+    expected_size_bytes: 13193
+    expected_tokens: 2142
+  - document_id: mhr-doc-3dbbea80072ca3fc4641e13a
+    artifact_id: mhr-doc-3dbbea80072ca3fc4641e13a
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-3dbbea80072ca3fc4641e13a.json
+    worker_id: a28
+    expected_size_bytes: 8147
+    expected_tokens: 1336
+  - document_id: mhr-doc-975b64923a638a69b0b8a278
+    artifact_id: mhr-doc-975b64923a638a69b0b8a278
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-975b64923a638a69b0b8a278.json
+    worker_id: a5
+    expected_size_bytes: 43430
+    expected_tokens: 7248
+  - document_id: mhr-doc-b963061b69a88b995395e9bc
+    artifact_id: mhr-doc-b963061b69a88b995395e9bc
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-b963061b69a88b995395e9bc.json
+    worker_id: a4
+    expected_size_bytes: 6346
+    expected_tokens: 1054
+  - document_id: mhr-doc-644da27d8aa04f8244a5925f
+    artifact_id: mhr-doc-644da27d8aa04f8244a5925f
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-644da27d8aa04f8244a5925f.json
+    worker_id: a28
+    expected_size_bytes: 26315
+    expected_tokens: 4181
+  - document_id: mhr-doc-b596ab1147cfe45180627f32
+    artifact_id: mhr-doc-b596ab1147cfe45180627f32
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-b596ab1147cfe45180627f32.json
+    worker_id: a5
+    expected_size_bytes: 13292
+    expected_tokens: 2118
+  - document_id: mhr-doc-660c323b2e1f1c6369f7307c
+    artifact_id: mhr-doc-660c323b2e1f1c6369f7307c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-660c323b2e1f1c6369f7307c.json
+    worker_id: a5
+    expected_size_bytes: 6702
+    expected_tokens: 1162
+  - document_id: mhr-doc-6ccd58d588b5b8e78a533156
+    artifact_id: mhr-doc-6ccd58d588b5b8e78a533156
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-6ccd58d588b5b8e78a533156.json
+    worker_id: a28
+    expected_size_bytes: 6120
+    expected_tokens: 977
+  - document_id: mhr-doc-679e4865af0d3e237bf714f6
+    artifact_id: mhr-doc-679e4865af0d3e237bf714f6
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-679e4865af0d3e237bf714f6.json
+    worker_id: a28
+    expected_size_bytes: 16937
+    expected_tokens: 2626
+  - document_id: mhr-doc-272b07278450a8dafcf3ba3e
+    artifact_id: mhr-doc-272b07278450a8dafcf3ba3e
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-272b07278450a8dafcf3ba3e.json
+    worker_id: a4
+    expected_size_bytes: 11301
+    expected_tokens: 1966
+  - document_id: mhr-doc-1e3d0cfe1fa859f7b39a56d4
+    artifact_id: mhr-doc-1e3d0cfe1fa859f7b39a56d4
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-1e3d0cfe1fa859f7b39a56d4.json
+    worker_id: a5
+    expected_size_bytes: 20974
+    expected_tokens: 3716
+  - document_id: mhr-doc-d0fb757773e2648cbdb853ca
+    artifact_id: mhr-doc-d0fb757773e2648cbdb853ca
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-d0fb757773e2648cbdb853ca.json
+    worker_id: a4
+    expected_size_bytes: 5560
+    expected_tokens: 936
+  - document_id: mhr-doc-37a219ed41321cbea9a2a59e
+    artifact_id: mhr-doc-37a219ed41321cbea9a2a59e
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-37a219ed41321cbea9a2a59e.json
+    worker_id: a28
+    expected_size_bytes: 15142
+    expected_tokens: 2380
+  - document_id: mhr-doc-092646f29e54f0b6bbd4a02c
+    artifact_id: mhr-doc-092646f29e54f0b6bbd4a02c
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-092646f29e54f0b6bbd4a02c.json
+    worker_id: a5
+    expected_size_bytes: 7781
+    expected_tokens: 1228
+  - document_id: mhr-doc-a1ac328567041cd815c0d114
+    artifact_id: mhr-doc-a1ac328567041cd815c0d114
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-a1ac328567041cd815c0d114.json
+    worker_id: a5
+    expected_size_bytes: 22197
+    expected_tokens: 3571
+  - document_id: mhr-doc-848c48401adacf41ac316a69
+    artifact_id: mhr-doc-848c48401adacf41ac316a69
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-848c48401adacf41ac316a69.json
+    worker_id: a4
+    expected_size_bytes: 15556
+    expected_tokens: 2671
+  - document_id: mhr-doc-b5d274bf0bda247e0c0507b4
+    artifact_id: mhr-doc-b5d274bf0bda247e0c0507b4
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-b5d274bf0bda247e0c0507b4.json
+    worker_id: a4
+    expected_size_bytes: 8953
+    expected_tokens: 1460
+  - document_id: mhr-doc-e2a8950d1188f3c1ef1e0fbb
+    artifact_id: mhr-doc-e2a8950d1188f3c1ef1e0fbb
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-e2a8950d1188f3c1ef1e0fbb.json
+    worker_id: a5
+    expected_size_bytes: 6943
+    expected_tokens: 1077
+  - document_id: mhr-doc-9ee66efa8f95a51d83c35a44
+    artifact_id: mhr-doc-9ee66efa8f95a51d83c35a44
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-9ee66efa8f95a51d83c35a44.json
+    worker_id: a28
+    expected_size_bytes: 13441
+    expected_tokens: 2169
+  - document_id: mhr-doc-5ed9a0ac2697ea20dd34bb22
+    artifact_id: mhr-doc-5ed9a0ac2697ea20dd34bb22
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-5ed9a0ac2697ea20dd34bb22.json
+    worker_id: a4
+    expected_size_bytes: 17476
+    expected_tokens: 3064
+  - document_id: mhr-doc-d89394cbfac11e10248187d2
+    artifact_id: mhr-doc-d89394cbfac11e10248187d2
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A28/mhr-doc-d89394cbfac11e10248187d2.json
+    worker_id: a28
+    expected_size_bytes: 32328
+    expected_tokens: 5328
+  - document_id: mhr-doc-f1e2f0b3f44d3fd1764e95a9
+    artifact_id: mhr-doc-f1e2f0b3f44d3fd1764e95a9
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A4/mhr-doc-f1e2f0b3f44d3fd1764e95a9.json
+    worker_id: a4
+    expected_size_bytes: 62490
+    expected_tokens: 10352
+  - document_id: mhr-doc-fd11a8f1f88916be2d22c445
+    artifact_id: mhr-doc-fd11a8f1f88916be2d22c445
+    path: /home/edge/xiaoming/scope_expansion_v0/multihop_rag/task_m4/artifacts/A5/mhr-doc-fd11a8f1f88916be2d22c445.json
+    worker_id: a5
+    expected_size_bytes: 6192
+    expected_tokens: 1056
+worlds:
+- world_id: H1_distributed_constrained
+  bandwidth_mbps: 3.0
+  rtt_ms: 83.0
+- world_id: H2_distributed_favorable
+  bandwidth_mbps: 100.0
+  rtt_ms: 33.0
+workflows:
+- centralized_raw
+- distributed_retrieval
+warmup_runs: 1
+repeats: 3
+worker_timeout_seconds: 1800
+run_prefix: scope-expansion-v0-multihop-rag

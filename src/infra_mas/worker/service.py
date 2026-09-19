@@ -7,11 +7,13 @@ import math
 import re
 import shutil
 import tempfile
+from collections import Counter
 from collections.abc import AsyncIterator, Callable, Iterable
 from dataclasses import dataclass
+from functools import cmp_to_key
 from pathlib import Path
 from time import perf_counter
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, cast, runtime_checkable
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -27,13 +29,23 @@ from infra_mas.core.errors import (
 )
 from infra_mas.core.execution import (
     AggregateArtifactsRequest,
+    AggregateRecordsRequest,
     ArtifactPullRequest,
     BindLocalArtifactRequest,
+    BM25RetrieveRequest,
+    DeriveFieldsRequest,
     ExecutionRequest,
     ExecutionResult,
     ExtractClipRequest,
+    FilterRecordsRequest,
     MakeContactSheetRequest,
+    RecordAggregation,
+    RecordDerivation,
+    RecordPredicate,
+    RecordSort,
     SampleFramesRequest,
+    SelectFieldsRequest,
+    TopKRecordsRequest,
     TransferResult,
     WorkerStatus,
 )
@@ -52,6 +64,330 @@ class WorkerExecutor:
 
 
 ArtifactIdFactory = Callable[[ExecutionRequest], str]
+
+
+def _bm25_tokens(text: str) -> list[str]:
+    """Use the fixed lowercase ASCII-alphanumeric tokenizer from candidate retrieval."""
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+_MISSING = object()
+_JSON_RECORD_MEDIA_TYPES = frozenset(
+    {
+        "application/json",
+        "application/jsonl",
+        "application/x-jsonlines",
+        "application/x-ndjson",
+        "text/json",
+        "text/jsonl",
+        "text/x-jsonlines",
+    }
+)
+
+
+def _load_json_records(inputs: list[tuple[ArtifactRef, Path]]) -> list[dict[str, Any]]:
+    """Load JSON arrays, record envelopes, objects, or JSON Lines deterministically."""
+    records: list[dict[str, Any]] = []
+    for artifact, path in inputs:
+        media_type = artifact.artifact_type.partition(";")[0].strip().lower()
+        if media_type not in _JSON_RECORD_MEDIA_TYPES and not media_type.endswith("+json"):
+            raise ExecutionFailedError(
+                "structured record operators require JSON or JSON Lines inputs, "
+                f"got {artifact.artifact_type!r}"
+            )
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            raise ExecutionFailedError(
+                f"artifact {artifact.id!r} is not valid UTF-8"
+            ) from error
+        try:
+            payload: object = json.loads(content)
+        except json.JSONDecodeError:
+            try:
+                payload = [
+                    json.loads(line)
+                    for line in content.splitlines()
+                    if line.strip()
+                ]
+            except json.JSONDecodeError as error:
+                raise ExecutionFailedError(
+                    f"artifact {artifact.id!r} is neither valid JSON nor JSON Lines"
+                ) from error
+        if isinstance(payload, dict):
+            payload_mapping = cast(dict[str, object], payload)
+            if "records" in payload_mapping:
+                payload = payload_mapping["records"]
+            else:
+                payload = [payload_mapping]
+        if not isinstance(payload, list):
+            raise ExecutionFailedError(
+                f"artifact {artifact.id!r} must contain a JSON record or record array"
+            )
+        for index, record in enumerate(cast(list[Any], payload)):
+            if not isinstance(record, dict):
+                raise ExecutionFailedError(
+                    f"artifact {artifact.id!r} record {index} must be a JSON object"
+                )
+            record_mapping = cast(dict[object, object], record)
+            if not all(isinstance(key, str) for key in record_mapping):
+                raise ExecutionFailedError(
+                    f"artifact {artifact.id!r} record {index} must use string keys"
+                )
+            records.append(cast(dict[str, Any], record_mapping))
+    return records
+
+
+def _field_value(record: dict[str, Any], field: str) -> Any:
+    """Resolve exact keys first, then dotted paths through nested objects."""
+    if field in record:
+        return record[field]
+    value: Any = record
+    for component in field.split("."):
+        if not isinstance(value, dict) or component not in value:
+            return _MISSING
+        value = cast(dict[str, Any], value)[component]
+    return value
+
+
+def _matches_predicate(record: dict[str, Any], predicate: RecordPredicate) -> bool:
+    actual = _field_value(record, predicate.field)
+    operator = predicate.operator
+    expected = predicate.value
+    if operator == "is_null":
+        return actual is _MISSING or actual is None
+    if operator == "not_null":
+        return actual is not _MISSING and actual is not None
+    if actual is _MISSING:
+        return False
+    if operator == "eq":
+        return bool(actual == expected)
+    if operator == "ne":
+        return bool(actual != expected)
+    if operator in {"in", "not_in"}:
+        assert isinstance(expected, list)
+        contained = actual in expected
+        return contained if operator == "in" else not contained
+    if operator in {"contains", "not_contains"}:
+        try:
+            contained = expected in actual
+        except (TypeError, AttributeError):
+            contained = False
+        return contained if operator == "contains" else not contained
+    try:
+        if operator == "lt":
+            return bool(actual < expected)
+        if operator == "lte":
+            return bool(actual <= expected)
+        if operator == "gt":
+            return bool(actual > expected)
+        if operator == "gte":
+            return bool(actual >= expected)
+    except TypeError:
+        return False
+    raise AssertionError(f"unhandled predicate operator: {operator}")
+
+
+def _aggregate_values(
+    records: list[dict[str, Any]], aggregation: RecordAggregation
+) -> int | float | str | bool | None:
+    if aggregation.operation == "count" and aggregation.field is None:
+        return len(records)
+    assert aggregation.field is not None
+    values = [
+        value
+        for record in records
+        if (value := _field_value(record, aggregation.field)) is not _MISSING
+        and value is not None
+    ]
+    if aggregation.operation == "count":
+        return len(values)
+    if aggregation.operation == "count_distinct":
+        return len(
+            {
+                json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                for value in values
+            }
+        )
+    if not values:
+        return None
+    if aggregation.operation in {"sum", "mean"}:
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in values):
+            raise ExecutionFailedError(
+                f"aggregate_records {aggregation.operation} requires numeric values in "
+                f"field {aggregation.field!r}"
+            )
+        total = sum(values)
+        return total if aggregation.operation == "sum" else total / len(values)
+    try:
+        if aggregation.operation == "min":
+            return min(values)
+        if aggregation.operation == "max":
+            return max(values)
+    except TypeError as error:
+        raise ExecutionFailedError(
+            f"aggregate_records {aggregation.operation} found incomparable values in "
+            f"field {aggregation.field!r}"
+        ) from error
+    raise AssertionError(f"unhandled aggregation operation: {aggregation.operation}")
+
+
+def _filter_json_records(
+    records: list[dict[str, Any]],
+    predicates: list[RecordPredicate],
+    match: Literal["all", "any"],
+) -> list[dict[str, Any]]:
+    combiner = all if match == "all" else any
+    return [
+        record
+        for record in records
+        if combiner(_matches_predicate(record, predicate) for predicate in predicates)
+    ]
+
+
+def _select_json_fields(
+    records: list[dict[str, Any]], fields: list[str]
+) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    for record in records:
+        projected: dict[str, Any] = {}
+        for field in fields:
+            value = _field_value(record, field)
+            if value is not _MISSING:
+                projected[field] = value
+        selected.append(projected)
+    return selected
+
+
+def _aggregate_json_records(
+    records: list[dict[str, Any]],
+    aggregations: list[RecordAggregation],
+    group_by: list[str],
+) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, ...], tuple[list[Any], list[dict[str, Any]]]] = {}
+    for record in records:
+        group_values = [
+            None if (value := _field_value(record, field)) is _MISSING else value
+            for field in group_by
+        ]
+        key = tuple(
+            json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            for value in group_values
+        )
+        if key not in grouped:
+            grouped[key] = (group_values, [])
+        grouped[key][1].append(record)
+    if not group_by and not grouped:
+        grouped[()] = ([], [])
+
+    output: list[dict[str, Any]] = []
+    for key in sorted(grouped):
+        group_values, group_records = grouped[key]
+        item = dict(zip(group_by, group_values, strict=True))
+        item.update(
+            {
+                aggregation.output_field: _aggregate_values(
+                    group_records, aggregation
+                )
+                for aggregation in aggregations
+            }
+        )
+        output.append(item)
+    return output
+
+
+def _derive_json_fields(
+    records: list[dict[str, Any]], derivations: list[RecordDerivation]
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for index, record in enumerate(records):
+        derived = dict(record)
+        for derivation in derivations:
+            left = _field_value(derived, derivation.left_field)
+            right = _field_value(derived, derivation.right_field)
+            if (
+                left is _MISSING
+                or right is _MISSING
+                or not isinstance(left, (int, float))
+                or isinstance(left, bool)
+                or not isinstance(right, (int, float))
+                or isinstance(right, bool)
+            ):
+                raise ExecutionFailedError(
+                    f"derive_fields record {index} requires numeric fields "
+                    f"{derivation.left_field!r} and {derivation.right_field!r}"
+                )
+            if derivation.operation == "add":
+                value = left + right
+            elif derivation.operation == "subtract":
+                value = left - right
+            elif derivation.operation == "multiply":
+                value = left * right
+            elif derivation.operation == "divide":
+                if right == 0:
+                    raise ExecutionFailedError(
+                        f"derive_fields record {index} divides by zero in field "
+                        f"{derivation.right_field!r}"
+                    )
+                value = left / right
+            else:
+                raise AssertionError(
+                    f"unhandled derivation operation: {derivation.operation}"
+                )
+            derived[derivation.output_field] = value
+        output.append(derived)
+    return output
+
+
+def _compare_record_values(left: Any, right: Any, sort: RecordSort) -> int:
+    left_null = left is _MISSING or left is None
+    right_null = right is _MISSING or right is None
+    if left_null or right_null:
+        if left_null and right_null:
+            return 0
+        null_first = sort.nulls == "first"
+        return -1 if left_null == null_first else 1
+    if (
+        isinstance(left, (int, float))
+        and not isinstance(left, bool)
+        and isinstance(right, (int, float))
+        and not isinstance(right, bool)
+    ):
+        comparison = (left > right) - (left < right)
+    elif isinstance(left, str) and isinstance(right, str):
+        comparison = (left > right) - (left < right)
+    elif isinstance(left, bool) and isinstance(right, bool):
+        comparison = (left > right) - (left < right)
+    else:
+        left_encoded = json.dumps(
+            left, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        right_encoded = json.dumps(
+            right, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        comparison = (left_encoded > right_encoded) - (left_encoded < right_encoded)
+    return comparison if sort.direction == "ascending" else -comparison
+
+
+def _top_k_json_records(
+    records: list[dict[str, Any]], order_by: list[RecordSort], limit: int
+) -> list[dict[str, Any]]:
+    def compare(left: dict[str, Any], right: dict[str, Any]) -> int:
+        for sort in order_by:
+            result = _compare_record_values(
+                _field_value(left, sort.field), _field_value(right, sort.field), sort
+            )
+            if result:
+                return result
+        left_encoded = json.dumps(
+            left, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        right_encoded = json.dumps(
+            right, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        return (left_encoded > right_encoded) - (left_encoded < right_encoded)
+
+    return sorted(records, key=cmp_to_key(compare))[:limit]
 
 
 def _compose_contact_sheet(
@@ -160,7 +496,16 @@ class WorkerService:
 
     def status(self) -> WorkerStatus:
         """Return static worker and executor identity information."""
-        operators = ["make_contact_sheet", "aggregate_artifacts"]
+        operators = [
+            "make_contact_sheet",
+            "aggregate_artifacts",
+            "bm25_retrieve",
+            "filter_records",
+            "select_fields",
+            "aggregate_records",
+            "derive_fields",
+            "top_k_records",
+        ]
         ffmpeg_available = shutil.which(self._ffmpeg_path) is not None
         gstreamer_available = shutil.which(self._gstreamer_path) is not None
         if ffmpeg_available:
@@ -566,6 +911,335 @@ class WorkerService:
             metadata={
                 "semantic_operator": "aggregate_artifacts",
                 "input_count": len(records),
+            },
+        )
+
+    async def bm25_retrieve(
+        self, request: BM25RetrieveRequest
+    ) -> ExecutionResult:
+        """Rank independent UTF-8 documents with deterministic, dataset-neutral BM25."""
+        started_at = perf_counter()
+        documents: list[tuple[ArtifactRef, str, list[str]]] = []
+        for artifact in request.input_artifacts:
+            media_type = artifact.artifact_type.partition(";")[0].lower()
+            if not (
+                media_type.startswith("text/")
+                or media_type.endswith("+json")
+                or media_type
+                in {"application/json", "application/xml", "application/yaml"}
+            ):
+                raise ExecutionFailedError(
+                    f"bm25_retrieve requires textual inputs, got {artifact.artifact_type!r}"
+                )
+            path = await self._artifact_store.get_path(artifact.id)
+            try:
+                content = await asyncio.to_thread(path.read_text, encoding="utf-8")
+            except UnicodeDecodeError as error:
+                raise ExecutionFailedError(
+                    f"artifact {artifact.id!r} is not valid UTF-8"
+                ) from error
+            documents.append((artifact, content, _bm25_tokens(content)))
+
+        query_terms = _bm25_tokens(request.query)
+        if not query_terms:
+            raise ExecutionFailedError("bm25_retrieve query has no searchable terms")
+        document_count = len(documents)
+        average_length = sum(len(tokens) for _, _, tokens in documents) / document_count
+        document_frequency = {
+            term: sum(term in set(tokens) for _, _, tokens in documents)
+            for term in set(query_terms)
+        }
+        ranked: list[tuple[float, str, str, int]] = []
+        for artifact, content, tokens in documents:
+            frequencies = Counter(tokens)
+            score = 0.0
+            for term in set(query_terms):
+                frequency = frequencies[term]
+                if frequency == 0:
+                    continue
+                frequency_in_corpus = document_frequency[term]
+                inverse_document_frequency = math.log(
+                    1.0
+                    + (document_count - frequency_in_corpus + 0.5)
+                    / (frequency_in_corpus + 0.5)
+                )
+                length_normalizer = 1.0 - request.b
+                if average_length > 0:
+                    length_normalizer += request.b * len(tokens) / average_length
+                score += inverse_document_frequency * (
+                    frequency * (request.k1 + 1.0)
+                    / (frequency + request.k1 * length_normalizer)
+                )
+            ranked.append((score, artifact.id, content, len(tokens)))
+        ranked.sort(key=lambda item: (-item[0], item[1]))
+        selected = ranked[: min(request.top_k, len(ranked))]
+        payload = json.dumps(
+            {
+                "schema_version": "generic-bm25-evidence-v1",
+                "algorithm": "bm25",
+                "parameters": {"top_k": request.top_k, "k1": request.k1, "b": request.b},
+                "query": request.query,
+                "candidate_document_count": document_count,
+                "documents": [
+                    {
+                        "artifact_id": artifact_id,
+                        "score": score,
+                        "content": content,
+                    }
+                    for score, artifact_id, content, _ in selected
+                ],
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id,
+            payload,
+            "application/json",
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:bm25_retrieve",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "bm25_retrieve",
+                "algorithm": "bm25",
+                "top_k": request.top_k,
+                "k1": request.k1,
+                "b": request.b,
+                "candidate_document_count": document_count,
+                "candidate_tokens": sum(len(tokens) for _, _, tokens in documents),
+                "retrieved_document_count": len(selected),
+                "retrieved_tokens": sum(token_count for *_, token_count in selected),
+                "retrieved_artifact_ids": [artifact_id for _, artifact_id, _, _ in selected],
+            },
+        )
+
+    async def filter_records(
+        self, request: FilterRecordsRequest
+    ) -> ExecutionResult:
+        """Apply deterministic predicates to generic JSON records locally."""
+        started_at = perf_counter()
+        inputs = [
+            (artifact, await self._artifact_store.get_path(artifact.id))
+            for artifact in request.input_artifacts
+        ]
+        records = await asyncio.to_thread(_load_json_records, inputs)
+        filtered = await asyncio.to_thread(
+            _filter_json_records, records, request.predicates, request.match
+        )
+        payload = json.dumps(
+            {
+                "schema_version": "generic-record-set-v1",
+                "operator": "filter_records",
+                "records": filtered,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        output_tokens = len(_bm25_tokens(payload))
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id, payload, "application/json"
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:filter_records",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "filter_records",
+                "input_record_count": len(records),
+                "output_record_count": len(filtered),
+                "predicate_count": len(request.predicates),
+                "match": request.match,
+                "output_tokens": output_tokens,
+                "output_tokens_lexical": output_tokens,
+            },
+        )
+
+    async def select_fields(
+        self, request: SelectFieldsRequest
+    ) -> ExecutionResult:
+        """Project generic JSON records onto explicit field paths locally."""
+        started_at = perf_counter()
+        inputs = [
+            (artifact, await self._artifact_store.get_path(artifact.id))
+            for artifact in request.input_artifacts
+        ]
+        records = await asyncio.to_thread(_load_json_records, inputs)
+        selected = await asyncio.to_thread(
+            _select_json_fields, records, request.fields
+        )
+        payload = json.dumps(
+            {
+                "schema_version": "generic-record-set-v1",
+                "operator": "select_fields",
+                "records": selected,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        output_tokens = len(_bm25_tokens(payload))
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id, payload, "application/json"
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:select_fields",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "select_fields",
+                "input_record_count": len(records),
+                "output_record_count": len(selected),
+                "selected_fields": request.fields,
+                "output_tokens": output_tokens,
+                "output_tokens_lexical": output_tokens,
+            },
+        )
+
+    async def aggregate_records(
+        self, request: AggregateRecordsRequest
+    ) -> ExecutionResult:
+        """Group and aggregate generic JSON records locally."""
+        started_at = perf_counter()
+        inputs = [
+            (artifact, await self._artifact_store.get_path(artifact.id))
+            for artifact in request.input_artifacts
+        ]
+        records = await asyncio.to_thread(_load_json_records, inputs)
+        groups = await asyncio.to_thread(
+            _aggregate_json_records,
+            records,
+            request.aggregations,
+            request.group_by,
+        )
+        payload = json.dumps(
+            {
+                "schema_version": "generic-record-aggregation-v1",
+                "operator": "aggregate_records",
+                "group_by": request.group_by,
+                "aggregations": [
+                    aggregation.model_dump(mode="json")
+                    for aggregation in request.aggregations
+                ],
+                "groups": groups,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        output_tokens = len(_bm25_tokens(payload))
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id, payload, "application/json"
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:aggregate_records",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "aggregate_records",
+                "input_record_count": len(records),
+                "output_group_count": len(groups),
+                "group_by": request.group_by,
+                "aggregation_count": len(request.aggregations),
+                "output_tokens": output_tokens,
+                "output_tokens_lexical": output_tokens,
+            },
+        )
+
+    async def derive_fields(
+        self, request: DeriveFieldsRequest
+    ) -> ExecutionResult:
+        """Add safe declarative arithmetic fields to generic JSON records locally."""
+        started_at = perf_counter()
+        inputs = [
+            (artifact, await self._artifact_store.get_path(artifact.id))
+            for artifact in request.input_artifacts
+        ]
+        records = await asyncio.to_thread(_load_json_records, inputs)
+        derived = await asyncio.to_thread(
+            _derive_json_fields, records, request.derivations
+        )
+        payload = json.dumps(
+            {
+                "schema_version": "generic-record-set-v1",
+                "operator": "derive_fields",
+                "records": derived,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        output_tokens = len(_bm25_tokens(payload))
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id, payload, "application/json"
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:derive_fields",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "derive_fields",
+                "input_record_count": len(records),
+                "output_record_count": len(derived),
+                "derived_fields": [item.output_field for item in request.derivations],
+                "output_tokens": output_tokens,
+                "output_tokens_lexical": output_tokens,
+            },
+        )
+
+    async def top_k_records(
+        self, request: TopKRecordsRequest
+    ) -> ExecutionResult:
+        """Order generic JSON records deterministically and retain a prefix locally."""
+        started_at = perf_counter()
+        inputs = [
+            (artifact, await self._artifact_store.get_path(artifact.id))
+            for artifact in request.input_artifacts
+        ]
+        records = await asyncio.to_thread(_load_json_records, inputs)
+        selected = await asyncio.to_thread(
+            _top_k_json_records, records, request.order_by, request.limit
+        )
+        payload = json.dumps(
+            {
+                "schema_version": "generic-record-set-v1",
+                "operator": "top_k_records",
+                "records": selected,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        output_tokens = len(_bm25_tokens(payload))
+        output = await self._artifact_store.put_text(
+            request.output_artifact_id, payload, "application/json"
+        )
+        return ExecutionResult(
+            request_id=request.request_id,
+            executor_id=f"{self._worker_id}:top_k_records",
+            output_artifacts=[output],
+            queue_ms=0.0,
+            service_ms=(perf_counter() - started_at) * 1000,
+            metadata={
+                "semantic_operator": "top_k_records",
+                "input_record_count": len(records),
+                "output_record_count": len(selected),
+                "limit": request.limit,
+                "order_by": [item.model_dump(mode="json") for item in request.order_by],
+                "output_tokens": output_tokens,
+                "output_tokens_lexical": output_tokens,
             },
         )
 

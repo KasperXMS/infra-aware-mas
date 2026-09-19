@@ -19,14 +19,20 @@ from infra_mas.core.errors import (
 )
 from infra_mas.core.execution import (
     AggregateArtifactsRequest,
+    AggregateRecordsRequest,
     ArtifactPullRequest,
     BindLocalArtifactRequest,
+    BM25RetrieveRequest,
+    DeriveFieldsRequest,
     ExecutionRequest,
     ExecutionResult,
     ExtractClipRequest,
+    FilterRecordsRequest,
     HealthResponse,
     MakeContactSheetRequest,
     SampleFramesRequest,
+    SelectFieldsRequest,
+    TopKRecordsRequest,
     TransferResult,
     WorkerStatus,
 )
@@ -199,6 +205,78 @@ class WorkerClient:
         response = await self._request(
             "POST",
             "/operators/aggregate-artifacts",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def bm25_retrieve(
+        self, request: BM25RetrieveRequest
+    ) -> ExecutionResult:
+        """Run deterministic BM25 over text artifacts local to this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/bm25-retrieve",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def filter_records(
+        self, request: FilterRecordsRequest
+    ) -> ExecutionResult:
+        """Filter structured records local to this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/filter-records",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def select_fields(
+        self, request: SelectFieldsRequest
+    ) -> ExecutionResult:
+        """Project structured records local to this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/select-fields",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def aggregate_records(
+        self, request: AggregateRecordsRequest
+    ) -> ExecutionResult:
+        """Aggregate structured records local to this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/aggregate-records",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def derive_fields(
+        self, request: DeriveFieldsRequest
+    ) -> ExecutionResult:
+        """Derive safe arithmetic fields local to this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/derive-fields",
+            json_payload=request.model_dump(mode="json"),
+            not_found_is_artifact=True,
+        )
+        return ExecutionResult.model_validate(response.json())
+
+    async def top_k_records(
+        self, request: TopKRecordsRequest
+    ) -> ExecutionResult:
+        """Select deterministically ordered records local to this Worker."""
+        response = await self._request(
+            "POST",
+            "/operators/top-k-records",
             json_payload=request.model_dump(mode="json"),
             not_found_is_artifact=True,
         )

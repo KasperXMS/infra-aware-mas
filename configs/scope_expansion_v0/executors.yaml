@@ -1,0 +1,30 @@
+workers:
+  a4:
+    endpoint: http://192.168.0.104:9001
+    site: A4
+  a5:
+    endpoint: http://192.168.0.105:9001
+    site: A5
+  a28:
+    endpoint: http://192.168.0.128:9001
+    site: A28
+
+executors:
+  a4-vlm:
+    worker_id: a4
+    capability: text_reasoning
+    model_id: edge-text-reasoner
+    device: jetson-agx-orin
+    site: A4
+  a5-vlm:
+    worker_id: a5
+    capability: text_reasoning
+    model_id: edge-text-reasoner
+    device: jetson-agx-orin
+    site: A5
+  a28-vlm:
+    worker_id: a28
+    capability: text_reasoning
+    model_id: edge-text-reasoner
+    device: jetson-agx-orin
+    site: A28

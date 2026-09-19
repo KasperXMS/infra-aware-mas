@@ -13,14 +13,20 @@ from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ArtifactNotFoundError, ArtifactTransferError, ExecutionFailedError
 from infra_mas.core.execution import (
     AggregateArtifactsRequest,
+    AggregateRecordsRequest,
     ArtifactPullRequest,
     BindLocalArtifactRequest,
+    BM25RetrieveRequest,
+    DeriveFieldsRequest,
     ExecutionRequest,
     ExecutionResult,
     ExtractClipRequest,
+    FilterRecordsRequest,
     HealthResponse,
     MakeContactSheetRequest,
     SampleFramesRequest,
+    SelectFieldsRequest,
+    TopKRecordsRequest,
     TransferResult,
     WorkerStatus,
 )
@@ -128,6 +134,54 @@ def create_app(service: WorkerService) -> FastAPI:
         except ExecutionFailedError as error:
             raise HTTPException(status_code=502, detail=str(error)) from error
 
+    async def bm25_retrieve(request: BM25RetrieveRequest) -> ExecutionResult:
+        try:
+            return await service.bm25_retrieve(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def filter_records(request: FilterRecordsRequest) -> ExecutionResult:
+        try:
+            return await service.filter_records(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def select_fields(request: SelectFieldsRequest) -> ExecutionResult:
+        try:
+            return await service.select_fields(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def aggregate_records(request: AggregateRecordsRequest) -> ExecutionResult:
+        try:
+            return await service.aggregate_records(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def derive_fields(request: DeriveFieldsRequest) -> ExecutionResult:
+        try:
+            return await service.derive_fields(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
+    async def top_k_records(request: TopKRecordsRequest) -> ExecutionResult:
+        try:
+            return await service.top_k_records(request)
+        except ArtifactNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ExecutionFailedError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+
     async def bind_local_artifact(request: BindLocalArtifactRequest) -> ArtifactRef:
         try:
             return await service.bind_local_artifact(request)
@@ -161,6 +215,42 @@ def create_app(service: WorkerService) -> FastAPI:
     app.add_api_route(
         "/operators/aggregate-artifacts",
         aggregate_artifacts,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/bm25-retrieve",
+        bm25_retrieve,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/filter-records",
+        filter_records,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/select-fields",
+        select_fields,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/aggregate-records",
+        aggregate_records,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/derive-fields",
+        derive_fields,
+        methods=["POST"],
+        response_model=ExecutionResult,
+    )
+    app.add_api_route(
+        "/operators/top-k-records",
+        top_k_records,
         methods=["POST"],
         response_model=ExecutionResult,
     )

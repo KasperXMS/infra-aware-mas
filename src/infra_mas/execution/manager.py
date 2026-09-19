@@ -7,11 +7,17 @@ from infra_mas.core.artifact import ArtifactRef
 from infra_mas.core.errors import ExecutionFailedError, WorkerUnavailableError
 from infra_mas.core.execution import (
     AggregateArtifactsRequest,
+    AggregateRecordsRequest,
+    BM25RetrieveRequest,
+    DeriveFieldsRequest,
     ExecutionRequest,
     ExecutionResult,
     ExtractClipRequest,
+    FilterRecordsRequest,
     MakeContactSheetRequest,
     SampleFramesRequest,
+    SelectFieldsRequest,
+    TopKRecordsRequest,
 )
 from infra_mas.core.executor import ExecutorSpec
 from infra_mas.core.trace import TraceSink
@@ -179,6 +185,108 @@ class ExecutionManager:
             inputs=request.input_artifacts,
             target_worker_id=target_worker_id,
             call=lambda client: client.aggregate_artifacts(request),
+        )
+
+    async def bm25_retrieve(
+        self,
+        request: BM25RetrieveRequest,
+        target_worker_id: str | None = None,
+    ) -> ExecutionResult:
+        """Localize a text shard and rank it on an operator-capable Worker."""
+        target_worker_id = target_worker_id or await self.select_media_worker(
+            request.input_artifacts, "bm25_retrieve"
+        )
+        return await self._execute_media_operator(
+            request_id=request.request_id,
+            operator="bm25_retrieve",
+            inputs=request.input_artifacts,
+            target_worker_id=target_worker_id,
+            call=lambda client: client.bm25_retrieve(request),
+        )
+
+    async def filter_records(
+        self,
+        request: FilterRecordsRequest,
+        target_worker_id: str | None = None,
+    ) -> ExecutionResult:
+        """Localize JSON records and filter them on an operator-capable Worker."""
+        target_worker_id = target_worker_id or await self.select_media_worker(
+            request.input_artifacts, "filter_records"
+        )
+        return await self._execute_media_operator(
+            request_id=request.request_id,
+            operator="filter_records",
+            inputs=request.input_artifacts,
+            target_worker_id=target_worker_id,
+            call=lambda client: client.filter_records(request),
+        )
+
+    async def select_fields(
+        self,
+        request: SelectFieldsRequest,
+        target_worker_id: str | None = None,
+    ) -> ExecutionResult:
+        """Localize JSON records and project them on an operator-capable Worker."""
+        target_worker_id = target_worker_id or await self.select_media_worker(
+            request.input_artifacts, "select_fields"
+        )
+        return await self._execute_media_operator(
+            request_id=request.request_id,
+            operator="select_fields",
+            inputs=request.input_artifacts,
+            target_worker_id=target_worker_id,
+            call=lambda client: client.select_fields(request),
+        )
+
+    async def aggregate_records(
+        self,
+        request: AggregateRecordsRequest,
+        target_worker_id: str | None = None,
+    ) -> ExecutionResult:
+        """Localize JSON records and aggregate them on an operator-capable Worker."""
+        target_worker_id = target_worker_id or await self.select_media_worker(
+            request.input_artifacts, "aggregate_records"
+        )
+        return await self._execute_media_operator(
+            request_id=request.request_id,
+            operator="aggregate_records",
+            inputs=request.input_artifacts,
+            target_worker_id=target_worker_id,
+            call=lambda client: client.aggregate_records(request),
+        )
+
+    async def derive_fields(
+        self,
+        request: DeriveFieldsRequest,
+        target_worker_id: str | None = None,
+    ) -> ExecutionResult:
+        """Localize JSON records and derive arithmetic fields on a capable Worker."""
+        target_worker_id = target_worker_id or await self.select_media_worker(
+            request.input_artifacts, "derive_fields"
+        )
+        return await self._execute_media_operator(
+            request_id=request.request_id,
+            operator="derive_fields",
+            inputs=request.input_artifacts,
+            target_worker_id=target_worker_id,
+            call=lambda client: client.derive_fields(request),
+        )
+
+    async def top_k_records(
+        self,
+        request: TopKRecordsRequest,
+        target_worker_id: str | None = None,
+    ) -> ExecutionResult:
+        """Localize JSON records and retain an ordered prefix on a capable Worker."""
+        target_worker_id = target_worker_id or await self.select_media_worker(
+            request.input_artifacts, "top_k_records"
+        )
+        return await self._execute_media_operator(
+            request_id=request.request_id,
+            operator="top_k_records",
+            inputs=request.input_artifacts,
+            target_worker_id=target_worker_id,
+            call=lambda client: client.top_k_records(request),
         )
 
     async def select_media_worker(

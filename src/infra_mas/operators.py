@@ -22,6 +22,12 @@ OperatorId = Literal[
     "extract_clip",
     "process_local_artifact",
     "aggregate_artifacts",
+    "bm25_retrieve",
+    "filter_records",
+    "select_fields",
+    "aggregate_records",
+    "derive_fields",
+    "top_k_records",
 ]
 
 
@@ -133,5 +139,13 @@ GENERAL_OPERATOR_REGISTRY = OperatorRegistry(
         OperatorBinding(
             operator_id="aggregate_artifacts", runtime_tool="worker.aggregate_artifacts"
         ),
+        OperatorBinding(operator_id="bm25_retrieve", runtime_tool="worker.bm25_retrieve"),
+        OperatorBinding(operator_id="filter_records", runtime_tool="worker.filter_records"),
+        OperatorBinding(operator_id="select_fields", runtime_tool="worker.select_fields"),
+        OperatorBinding(
+            operator_id="aggregate_records", runtime_tool="worker.aggregate_records"
+        ),
+        OperatorBinding(operator_id="derive_fields", runtime_tool="worker.derive_fields"),
+        OperatorBinding(operator_id="top_k_records", runtime_tool="worker.top_k_records"),
     ]
 )

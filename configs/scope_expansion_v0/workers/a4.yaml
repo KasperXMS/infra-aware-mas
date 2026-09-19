@@ -1,0 +1,18 @@
+worker_id: a4
+host: 0.0.0.0
+port: 9001
+artifact_root: ../../../data/scope_expansion_v0/a4/artifacts
+local_source_roots:
+  - /home/edge/xiaoming/scope_expansion_v0
+executors:
+  - id: a4-vlm
+    capability: text_reasoning
+    backend:
+      type: openai_compatible
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3-vl-edge-8k:latest
+      api_key_env: null
+      timeout_seconds: 1200
+      max_tokens: 1024
+      temperature: 0
+      reasoning_effort: none
